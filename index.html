@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>The Glass Half Full</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥤</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="viewport">
+    <div id="stage">
+      <!-- Scene layers (exported from Figma, WebP) -->
+      <img class="layer" id="bg"     src="assets/img/bg.webp"        alt="">
+      <img class="layer" id="ground" src="assets/img/ground.webp"    alt="">
+      <img class="layer" id="post"   src="assets/img/post-left.webp" alt="">
+      <img class="layer" id="trays"  src="assets/img/trays.webp"     alt="">
+      <img class="layer" id="topbar" src="assets/img/topbar.webp"    alt="">
+
+      <!-- Phase 2: spooky customers & serving counter (hidden until sorting is done) -->
+      <div id="customer-layer">
+        <img class="customer" id="char-reaper" src="assets/img/char-reaper.webp" alt="Little reaper customer">
+        <img class="customer" id="char-wolf"   src="assets/img/char-wolf.webp"   alt="Wolf customer">
+        <img class="customer" id="char-mummy"  src="assets/img/char-mummy.webp"  alt="Mummy customer">
+      </div>
+      <img class="layer phase2" id="trays2"   src="assets/img/trays2.webp"   alt="">
+      <img class="layer phase2" id="lemonbox" src="assets/img/lemonbox.webp" alt="">
+      <img class="layer phase2" id="strawbox" src="assets/img/strawbox.webp" alt="">
+
+      <div id="sky-sparkles"></div>
+
+      <!-- Drop zones (invisible; glow while a glass hovers over them) -->
+      <div class="tray-zone" id="zone-empty" data-type="empty"></div>
+      <div class="tray-zone" id="zone-half"  data-type="half"></div>
+      <div class="tray-zone" id="zone-full"  data-type="full"></div>
+      <div class="tray-zone" id="zone-customer"></div>
+
+      <div id="glass-layer"></div>
+
+      <!-- Gold plaques -->
+      <div class="plaque" id="plaque-empty"><span>Empty</span></div>
+      <div class="plaque" id="plaque-half"><span>Half Full</span></div>
+      <div class="plaque" id="plaque-full"><span>Full</span></div>
+      <div class="plaque phase2" id="plaque2-half"><span>Half Full</span></div>
+      <div class="plaque phase2" id="plaque2-full"><span>Full</span></div>
+
+      <div id="bubble"><span id="bubble-text"></span></div>
+      <div id="phase-banner">Great Sorting!</div>
+
+      <div id="hud"><span id="hud-count">0</span>&nbsp;/&nbsp;<span id="hud-total">12</span></div>
+      <button id="mute" aria-label="Toggle sound">🔊</button>
+      <div id="instruction">Drag each glass to the correct tray!</div>
+
+      <div id="fx-layer"></div>
+
+      <div id="win-overlay">
+        <div class="win-inner">
+          <h1>Well Done!</h1>
+          <p>You sorted all 12 glasses!</p>
+          <button id="replay">Play Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/vendor/gsap.min.js"></script>
+  <script src="js/sfx.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

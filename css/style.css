@@ -1,0 +1,241 @@
+@font-face {
+  font-family: 'Lilita One';
+  src: url('../assets/fonts/lilita-one.woff2') format('woff2');
+  font-display: swap;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  background: #14080a;
+  overflow: hidden;
+  font-family: 'Lilita One', system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#viewport { position: fixed; inset: 0; overflow: hidden; }
+
+/* Fixed 1920x1080 stage, scaled to fit the window from JS */
+#stage {
+  position: absolute;
+  top: 0; left: 0;
+  width: 1920px; height: 1080px;
+  transform-origin: 0 0;
+}
+
+img { user-select: none; -webkit-user-drag: none; }
+
+.layer { position: absolute; pointer-events: none; }
+#bg     { left: 0;    top: 0;     width: 1920px; height: 935px; z-index: 1; }
+#ground { left: 0;    top: 610px; width: 1920px; height: 470px; z-index: 3; }
+#post   { left: 64px; top: 30px;  width: 64px;   height: 580px; z-index: 3; }
+/* the trays artwork is drawn on a white card; multiply drops the white
+   against the wooden counter exactly like the Figma composite */
+#trays  { left: 42px; top: 320px; width: 1834px; height: 760px; z-index: 4; mix-blend-mode: multiply; }
+#topbar { left: 0;    top: 0;     width: 1920px; height: 43px;  z-index: 5; }
+
+/* customers stand behind the counter: above the sky, below the wood */
+#customer-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.customer {
+  position: absolute;
+  transform-origin: 50% 100%;
+  opacity: 0;
+  visibility: hidden;
+}
+#char-reaper { left: 187px;  top: 248px; width: 338px; }
+#char-wolf   { left: 804px;  top: 257px; width: 439px; }
+#char-mummy  { left: 1318px; top: 277px; width: 365px; }
+
+/* phase-2 counter dressing */
+.phase2 { opacity: 0; visibility: hidden; }
+#trays2   { left: 686px; top: 718px; width: 1234px; height: 362px; z-index: 4; mix-blend-mode: multiply; }
+#lemonbox { left: 53px;  top: 706px; width: 305px; z-index: 4; }
+#strawbox { left: 381px; top: 668px; width: 305px; z-index: 4; }
+
+#sky-sparkles { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.sparkle {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, rgba(255, 255, 255, 0) 70%);
+  opacity: 0;
+}
+
+.tray-zone {
+  position: absolute;
+  z-index: 6;
+  border-radius: 30px;
+  opacity: 0;
+  background: radial-gradient(closest-side, rgba(255, 214, 92, 0.30), rgba(255, 214, 92, 0));
+  pointer-events: none;
+}
+#zone-empty { left: 120px;  top: 700px; width: 530px; height: 365px; }
+#zone-half  { left: 672px;  top: 700px; width: 578px; height: 365px; }
+#zone-full  { left: 1290px; top: 700px; width: 430px; height: 365px; }
+#zone-customer { top: 220px; width: 440px; height: 420px; border-radius: 50%; }
+
+#glass-layer { position: absolute; inset: 0; z-index: 7; }
+
+.glass {
+  position: absolute;
+  cursor: grab;
+  touch-action: none;
+  will-change: transform;
+}
+.glass img { width: 100%; height: 100%; display: block; pointer-events: none; }
+.glass.dragging { cursor: grabbing; }
+.glass.dragging img { filter: drop-shadow(0 20px 22px rgba(0, 0, 0, 0.45)); }
+.glass.placed { cursor: default; }
+
+.plaque {
+  position: absolute;
+  z-index: 8;
+  width: 356px; height: 97px;
+  background: url('../assets/img/plaque.webp') center / 100% 100% no-repeat;
+  display: flex; align-items: center; justify-content: center;
+  padding-bottom: 8px;
+  pointer-events: none;
+}
+.plaque span { font-size: 65px; color: #972129; line-height: 1; }
+#plaque-empty { left: 160px;  top: 968px; }
+#plaque-half  { left: 773px;  top: 969px; }
+#plaque-full  { left: 1405px; top: 969px; }
+#plaque2-half { left: 826px;  top: 967px; }
+#plaque2-full { left: 1458px; top: 967px; }
+
+/* character-style speech bubble */
+#bubble {
+  position: absolute;
+  z-index: 9;
+  transform-origin: 50% 100%;
+  background: #fffdf2;
+  border: 5px solid #972129;
+  border-radius: 26px;
+  padding: 16px 30px 20px;
+  font-size: 40px;
+  line-height: 1.2;
+  color: #5a2d0d;
+  max-width: 640px;
+  width: max-content;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+}
+#bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -26px;
+  transform: translateX(-50%);
+  border: 16px solid transparent;
+  border-top: 26px solid #972129;
+  border-bottom: 0;
+}
+#bubble b { color: #d81b8c; text-transform: uppercase; }
+
+#phase-banner {
+  position: absolute;
+  z-index: 10;
+  top: 44%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 130px;
+  color: #ffc93c;
+  text-shadow: 0 6px 0 #972129, 0 14px 30px rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#hud {
+  position: absolute;
+  z-index: 9;
+  top: 64px; right: 64px;
+  background: rgba(46, 10, 14, 0.6);
+  border: 3px solid #e9b64f;
+  border-radius: 999px;
+  color: #ffe9b0;
+  font-size: 38px;
+  padding: 6px 28px 10px;
+  letter-spacing: 2px;
+}
+
+#mute {
+  position: absolute;
+  z-index: 9;
+  top: 62px; right: 254px;
+  width: 62px; height: 62px;
+  background: rgba(46, 10, 14, 0.6);
+  border: 3px solid #e9b64f;
+  border-radius: 50%;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s ease;
+}
+#mute:hover { transform: scale(1.1); }
+#mute:active { transform: scale(0.95); }
+
+#instruction {
+  position: absolute;
+  z-index: 9;
+  top: 130px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 52px;
+  color: #fff;
+  text-shadow: 0 4px 0 rgba(80, 20, 26, 0.9), 0 10px 26px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#fx-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; overflow: hidden; }
+.spark {
+  position: absolute;
+  color: #ffd75e;
+  font-size: 36px;
+  line-height: 1;
+  text-shadow: 0 0 14px rgba(255, 215, 94, 0.9);
+  will-change: transform;
+}
+.confetti { position: absolute; top: -24px; will-change: transform; }
+
+#win-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20, 6, 9, 0.62);
+  opacity: 0;
+  visibility: hidden;
+}
+.win-inner { text-align: center; }
+.win-inner h1 {
+  font-size: 150px;
+  color: #ffc93c;
+  text-shadow: 0 6px 0 #972129, 0 16px 34px rgba(0, 0, 0, 0.55);
+}
+.win-inner p {
+  font-size: 44px;
+  color: #fff;
+  margin: 10px 0 44px;
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+#replay {
+  font-family: inherit;
+  font-size: 52px;
+  color: #972129;
+  width: 356px; height: 97px;
+  background: url('../assets/img/plaque.webp') center / 100% 100% no-repeat;
+  border: none;
+  cursor: pointer;
+  padding-bottom: 8px;
+  transition: transform 0.15s ease;
+}
+#replay:hover { transform: scale(1.06); }
+#replay:active { transform: scale(0.97); }
