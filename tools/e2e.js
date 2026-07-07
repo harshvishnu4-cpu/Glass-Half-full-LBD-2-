@@ -30,7 +30,15 @@ function expect(label, actual, wanted) {
   page.on('pageerror', (e) => errors.push(e.message));
 
   await page.goto(URL);
-  await sleep(3500); // let the intro finish
+  await sleep(1400); // title screen entrance
+  expect('title screen visible', await page.evaluate(
+    () => getComputedStyle(document.getElementById('title-screen')).display !== 'none'), true);
+  await page.screenshot({ path: path.join(SHOTS, '0-title.png') });
+  await page.click('#play-btn');
+  await sleep(800); // mid-splash
+  await page.screenshot({ path: path.join(SHOTS, '0b-splash.png') });
+  await sleep(4400); // rest of splash + intro
+  expect('background music playing', await page.evaluate(() => window.SFX.musicPlaying()), true);
 
   const center = (sel, idx = 0) => page.evaluate((s, i) => {
     const el = document.querySelectorAll(s)[i];
@@ -54,7 +62,7 @@ function expect(label, actual, wanted) {
   const placed = () => page.evaluate(() => window.__game.placed);
   const types = await page.evaluate(() =>
     Array.from(document.querySelectorAll('.glass img')).map((i) => i.alt.split(' ')[0]));
-  expect('glass count', types.length, 12);
+  expect('glass count', types.length, 15);
 
   await page.screenshot({ path: path.join(SHOTS, '0-start.png') });
 
@@ -62,18 +70,41 @@ function expect(label, actual, wanted) {
   await dragTo(0, '#zone-full', { shotDuringDrag: '1-dragging.png' });
   await sleep(400); // return-home tween
   expect('placed after wrong drop', await placed(), 0);
+  // a second miss in a row must trigger the glowing-tray hint
+  await dragTo(0, '#zone-full');
+  await sleep(400);
+  expect('hint after two wrong attempts', await page.evaluate(
+    () => document.getElementById('banner-text').textContent.includes('glowing tray')), true);
   await page.screenshot({ path: path.join(SHOTS, '2-after-reject.png') });
 
   // 2. sort everything correctly
   const zoneFor = { empty: '#zone-empty', half: '#zone-half', full: '#zone-full' };
   for (let i = 0; i < types.length; i++) await dragTo(i, zoneFor[types[i]]);
-  expect('placed after sorting all', await placed(), 12);
+  expect('placed after sorting all', await placed(), 15);
+  await page.screenshot({ path: path.join(SHOTS, '2b-sorted.png') });
 
   // 3. phase 2: customers walk in and demand drinks
   await page.waitForFunction(() => window.__game.phase === 2, { timeout: 15000 });
   await page.waitForFunction(() => window.__game.demand !== null, { timeout: 25000 });
+  console.log('order sequence:', await page.evaluate(
+    () => [window.__game.demand].concat(window.__game.demandQueue).join(', ')));
   await sleep(700); // bubble pop-in
   await page.screenshot({ path: path.join(SHOTS, '3-customers.png') });
+
+  // garnish: one tap on each box dresses every glass on the trays
+  await page.click('#strawbox');
+  await sleep(900);
+  expect('straws added to all glasses', await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('.glass'));
+    return els.length === 10 && els.every((el) => el.querySelector('.straw'));
+  }), true);
+  await page.click('#lemonbox');
+  await sleep(900);
+  expect('lemons added to all glasses', await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('.glass'));
+    return els.length === 10 && els.every((el) => el.querySelector('.lemon'));
+  }), true);
+  await page.screenshot({ path: path.join(SHOTS, '3b-garnished.png') });
 
   const served = () => page.evaluate(() => window.__game.served);
   const glassIdxOf = (t) => page.evaluate(
@@ -85,18 +116,20 @@ function expect(label, actual, wanted) {
   await sleep(500);
   expect('served after wrong serve', await served(), 0);
 
-  // serve all 8 correctly
+  // serve all 10 correctly
   let rounds = 0;
-  while ((await served()) < 8 && rounds++ < 12) {
+  while ((await served()) < 10 && rounds++ < 16) {
     demand = await page.evaluate(() => window.__game.demand);
     if (!demand) { await sleep(400); continue; }
     const before = await served();
     await dragTo(await glassIdxOf(demand), '#zone-customer');
     await page.waitForFunction((n) => window.__game.served === n + 1, { timeout: 6000 }, before);
     await page.waitForFunction(
-      () => window.__game.demand !== null || window.__game.served === 8, { timeout: 10000 });
+      () => window.__game.demand !== null || window.__game.served === 10, { timeout: 10000 });
   }
-  expect('customers served', await served(), 8);
+  expect('customers served', await served(), 10);
+  await sleep(2000); // last coin flight
+  expect('coins collected', await page.evaluate(() => window.__game.coins), 10);
 
   await sleep(2600); // win overlay + confetti
   await page.screenshot({ path: path.join(SHOTS, '4-win.png') });
@@ -109,15 +142,8 @@ function expect(label, actual, wanted) {
   await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('#replay')]);
   await sleep(1500);
   expect('placed after replay', await placed(), 0);
-  expect('glasses after replay', await page.evaluate(() => document.querySelectorAll('.glass').length), 12);
+  expect('glasses after replay', await page.evaluate(() => document.querySelectorAll('.glass').length), 15);
   await page.screenshot({ path: path.join(SHOTS, '5-replay.png') });
-
-  // 4. sound toggle flips the icon (and exercises the audio path)
-  const icon1 = await page.$eval('#mute', (el) => el.textContent);
-  await page.click('#mute');
-  const icon2 = await page.$eval('#mute', (el) => el.textContent);
-  expect('mute toggles icon', icon1 !== icon2, true);
-  await page.click('#mute'); // restore sound
 
   console.log('page errors:', errors.length ? errors.join(' | ') : 'none');
   if (errors.length) failures++;

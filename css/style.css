@@ -33,7 +33,7 @@ img { user-select: none; -webkit-user-drag: none; }
 #post   { left: 64px; top: 30px;  width: 64px;   height: 580px; z-index: 3; }
 /* the trays artwork is drawn on a white card; multiply drops the white
    against the wooden counter exactly like the Figma composite */
-#trays  { left: 42px; top: 320px; width: 1834px; height: 760px; z-index: 4; mix-blend-mode: multiply; }
+#trays  { left: 42px; top: 710px; width: 1834px; height: 344px; z-index: 4; mix-blend-mode: multiply; }
 #topbar { left: 0;    top: 0;     width: 1920px; height: 43px;  z-index: 5; }
 
 /* customers stand behind the counter: above the sky, below the wood */
@@ -44,15 +44,21 @@ img { user-select: none; -webkit-user-drag: none; }
   opacity: 0;
   visibility: hidden;
 }
-#char-reaper { left: 187px;  top: 248px; width: 338px; }
-#char-wolf   { left: 804px;  top: 257px; width: 439px; }
-#char-mummy  { left: 1318px; top: 277px; width: 365px; }
+/* every customer is normalised to the same 440px body height, feet on a
+   common ground line behind the counter (top 305 + 440 = feet at 745);
+   widths follow each sprite's aspect ratio */
+#char-reaper  { left: 178px;  top: 305px; width: 355px; }
+#char-wolf    { left: 883px;  top: 305px; width: 280px; }
+#char-mummy   { left: 1346px; top: 305px; width: 307px; }
+#char-vampire { left: 595px;  top: 305px; width: 269px; }
+#char-zombie  { left: 1149px; top: 305px; width: 237px; }
 
 /* phase-2 counter dressing */
 .phase2 { opacity: 0; visibility: hidden; }
 #trays2   { left: 686px; top: 718px; width: 1234px; height: 362px; z-index: 4; mix-blend-mode: multiply; }
-#lemonbox { left: 53px;  top: 706px; width: 305px; z-index: 4; }
-#strawbox { left: 381px; top: 668px; width: 305px; z-index: 4; }
+/* the garnish boxes are tappable: one tap dresses every glass */
+#lemonbox { left: 53px;  top: 706px; width: 305px; z-index: 4; pointer-events: auto; cursor: pointer; }
+#strawbox { left: 381px; top: 668px; width: 305px; z-index: 4; pointer-events: auto; cursor: pointer; }
 
 #sky-sparkles { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .sparkle {
@@ -71,20 +77,25 @@ img { user-select: none; -webkit-user-drag: none; }
   background: radial-gradient(closest-side, rgba(255, 214, 92, 0.30), rgba(255, 214, 92, 0));
   pointer-events: none;
 }
-#zone-empty { left: 120px;  top: 700px; width: 530px; height: 365px; }
+#zone-empty { left: 90px;   top: 700px; width: 550px; height: 365px; }
 #zone-half  { left: 672px;  top: 700px; width: 578px; height: 365px; }
-#zone-full  { left: 1290px; top: 700px; width: 430px; height: 365px; }
+#zone-full  { left: 1290px; top: 700px; width: 550px; height: 365px; }
 #zone-customer { top: 220px; width: 440px; height: 420px; border-radius: 50%; }
 
-#glass-layer { position: absolute; inset: 0; z-index: 7; }
+/* the layer itself must not swallow taps meant for the garnish boxes below */
+#glass-layer { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
 
 .glass {
   position: absolute;
   cursor: grab;
   touch-action: none;
   will-change: transform;
+  pointer-events: auto;
 }
 .glass img { width: 100%; height: 100%; display: block; pointer-events: none; }
+.glass .garnish { position: absolute; width: auto; height: auto; }
+.glass .garnish.straw { width: 58px; height: 58px; left: 42%; top: -44px; }
+.glass .garnish.lemon { width: 46px; height: 44px; left: -16px; top: -18px; }
 .glass.dragging { cursor: grabbing; }
 .glass.dragging img { filter: drop-shadow(0 20px 22px rgba(0, 0, 0, 0.45)); }
 .glass.placed { cursor: default; }
@@ -105,44 +116,36 @@ img { user-select: none; -webkit-user-drag: none; }
 #plaque2-half { left: 826px;  top: 967px; }
 #plaque2-full { left: 1458px; top: 967px; }
 
-/* character-style speech bubble */
-#bubble {
+/* coins the customers pay — they fly from the customer and pile up on the counter */
+.coin-fly {
+  position: absolute;
+  left: 0; top: 0;
+  z-index: 10;
+  width: 92px;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.4));
+  will-change: transform;
+}
+
+/* designed order bubble (half/full glass artwork, tail points down-right) */
+#demand-bubble {
   position: absolute;
   z-index: 9;
-  transform-origin: 50% 100%;
-  background: #fffdf2;
-  border: 5px solid #972129;
-  border-radius: 26px;
-  padding: 16px 30px 20px;
-  font-size: 40px;
-  line-height: 1.2;
-  color: #5a2d0d;
-  max-width: 640px;
-  width: max-content;
-  text-align: center;
+  left: 605px; top: 168px;
+  width: 185px;
+  transform-origin: 85% 95%;
   opacity: 0;
   visibility: hidden;
-  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
   pointer-events: none;
 }
-#bubble::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: -26px;
-  transform: translateX(-50%);
-  border: 16px solid transparent;
-  border-top: 26px solid #972129;
-  border-bottom: 0;
-}
-#bubble b { color: #d81b8c; text-transform: uppercase; }
 
 #phase-banner {
   position: absolute;
   z-index: 10;
   top: 44%; left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 130px;
+  font-size: 84px;
   color: #ffc93c;
   text-shadow: 0 6px 0 #972129, 0 14px 30px rgba(0, 0, 0, 0.55);
   white-space: nowrap;
@@ -151,47 +154,41 @@ img { user-select: none; -webkit-user-drag: none; }
   pointer-events: none;
 }
 
-#hud {
+/* mascot instruction banner (from Figma slide 3) */
+#banner { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+#banner-strip {
   position: absolute;
-  z-index: 9;
-  top: 64px; right: 64px;
-  background: rgba(46, 10, 14, 0.6);
-  border: 3px solid #e9b64f;
-  border-radius: 999px;
-  color: #ffe9b0;
-  font-size: 38px;
-  padding: 6px 28px 10px;
-  letter-spacing: 2px;
+  left: 97px; top: 49px;
+  width: 1757px; height: 117px;
+  object-fit: cover;
+  object-position: bottom;
 }
-
-#mute {
+#mascot-box { position: absolute; left: 26px; top: 20px; width: 169px; height: 169px; }
+#mascot     { position: absolute; left: 43px; top: 46px; width: 134px; height: 118px; }
+#banner-text {
   position: absolute;
-  z-index: 9;
-  top: 62px; right: 254px;
-  width: 62px; height: 62px;
-  background: rgba(46, 10, 14, 0.6);
-  border: 3px solid #e9b64f;
-  border-radius: 50%;
-  font-size: 30px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: transform 0.15s ease;
-}
-#mute:hover { transform: scale(1.1); }
-#mute:active { transform: scale(0.95); }
-
-#instruction {
-  position: absolute;
-  z-index: 9;
-  top: 130px; left: 50%;
-  transform: translateX(-50%);
-  font-size: 52px;
+  left: 225px; top: 49px;
+  height: 117px;
+  display: flex;
+  align-items: center;
+  font-size: 46px;
   color: #fff;
-  text-shadow: 0 4px 0 rgba(80, 20, 26, 0.9), 0 10px 26px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 3px 0 #844a08;
   white-space: nowrap;
+}
+
+/* tutorial hand that demonstrates the drag */
+#tut-hand {
+  position: absolute;
+  left: 0; top: 0;
+  z-index: 10;
+  font-size: 88px;
+  line-height: 1;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45));
+  will-change: transform;
 }
 
 #fx-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; overflow: hidden; }
@@ -239,3 +236,61 @@ img { user-select: none; -webkit-user-drag: none; }
 }
 #replay:hover { transform: scale(1.06); }
 #replay:active { transform: scale(0.97); }
+
+/* ---------- title screen ---------- */
+#title-screen { position: absolute; inset: 0; z-index: 12; }
+#title-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#game-title {
+  position: absolute;
+  top: 88px;
+  width: 100%;
+  text-align: center;
+  font-size: 150px;
+  letter-spacing: 2px;
+  color: #ffc93c;
+  -webkit-text-stroke: 12px #972129;
+  paint-order: stroke fill;
+  text-shadow: 0 10px 0 rgba(80, 15, 20, 0.55), 0 20px 44px rgba(0, 0, 0, 0.45);
+}
+#play-btn {
+  position: absolute;
+  left: 50%; top: 640px;
+  width: 240px;
+  margin-left: -120px; margin-top: -108px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+#play-btn img {
+  width: 100%;
+  display: block;
+  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.35));
+}
+
+/* ---------- liquid splash transition ---------- */
+#splash {
+  position: absolute;
+  inset: 0;
+  z-index: 13;
+  display: none;
+  pointer-events: none;
+}
+.wave { position: absolute; left: 0; top: 0; width: 1920px; height: 1900px; will-change: transform; }
+.wave svg { width: 100%; height: 100%; display: block; }
+#splat {
+  position: absolute;
+  left: 442px; top: 30px;
+  width: 1035px; height: 1020px;
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform;
+}
+.splash-drop {
+  position: absolute;
+  left: 0; top: 0;
+  border-radius: 50%;
+  background: #F77ADE;
+  pointer-events: none;
+  will-change: transform;
+}

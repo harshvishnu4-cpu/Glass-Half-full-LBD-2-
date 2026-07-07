@@ -19,9 +19,11 @@
 
       <!-- Phase 2: spooky customers & serving counter (hidden until sorting is done) -->
       <div id="customer-layer">
-        <img class="customer" id="char-reaper" src="assets/img/char-reaper.webp" alt="Little reaper customer">
-        <img class="customer" id="char-wolf"   src="assets/img/char-wolf.webp"   alt="Wolf customer">
-        <img class="customer" id="char-mummy"  src="assets/img/char-mummy.webp"  alt="Mummy customer">
+        <img class="customer" id="char-reaper"  src="assets/img/char-reaper.webp"  alt="Little reaper customer">
+        <img class="customer" id="char-wolf"    src="assets/img/char-wolf.webp"    alt="Wolf customer">
+        <img class="customer" id="char-mummy"   src="assets/img/char-mummy.webp"   alt="Mummy customer">
+        <img class="customer" id="char-vampire" src="assets/img/char-vampire.webp" alt="Vampire customer">
+        <img class="customer" id="char-zombie"  src="assets/img/char-zombie.webp"  alt="Zombie customer">
       </div>
       <img class="layer phase2" id="trays2"   src="assets/img/trays2.webp"   alt="">
       <img class="layer phase2" id="lemonbox" src="assets/img/lemonbox.webp" alt="">
@@ -44,12 +46,18 @@
       <div class="plaque phase2" id="plaque2-half"><span>Half Full</span></div>
       <div class="plaque phase2" id="plaque2-full"><span>Full</span></div>
 
-      <div id="bubble"><span id="bubble-text"></span></div>
+      <img id="demand-bubble" src="assets/img/bubble-half.svg" alt="Customer order">
       <div id="phase-banner">Great Sorting!</div>
 
-      <div id="hud"><span id="hud-count">0</span>&nbsp;/&nbsp;<span id="hud-total">12</span></div>
-      <button id="mute" aria-label="Toggle sound">🔊</button>
-      <div id="instruction">Drag each glass to the correct tray!</div>
+      <!-- mascot instruction banner -->
+      <div id="banner">
+        <img id="banner-strip" src="assets/img/banner.webp" alt="">
+        <span id="banner-text">Sort the glasses into correct trays.</span>
+        <img id="mascot-box" src="assets/img/mascotbox.webp" alt="">
+        <img id="mascot" src="assets/img/dragon.webp" alt="Dragon mascot">
+      </div>
+
+      <div id="tut-hand">👆</div>
 
       <div id="fx-layer"></div>
 
@@ -58,6 +66,40 @@
           <h1>Well Done!</h1>
           <p>You sorted all 12 glasses!</p>
           <button id="replay">Play Again</button>
+        </div>
+      </div>
+
+      <!-- title screen -->
+      <div id="title-screen">
+        <img id="title-bg" src="assets/img/title.webp" alt="">
+        <h1 id="game-title">The Glass Half Full</h1>
+        <button id="play-btn" aria-label="Play"><img src="assets/img/playbutton.svg" alt="Play"></button>
+      </div>
+
+      <!-- liquid splash transition: a juice blob bursts from the center to
+           cover the screen (with flying droplets), then drains off the
+           bottom behind the drippy wave sheets -->
+      <div id="splash">
+        <img id="splat" src="assets/img/splash.svg" alt="">
+        <div class="wave wave-back">
+          <svg viewBox="0 0 1920 1900" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#b8156f" d="M0 150 Q240 70 480 140 T960 120 T1440 150 T1920 110 L1920 1560 Q1800 1680 1680 1590 T1440 1600 T1200 1580 T960 1620 T720 1580 T480 1620 T240 1580 L0 1620 Z"/>
+          </svg>
+        </div>
+        <div class="wave wave-front">
+          <svg viewBox="0 0 1920 1900" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#F77ADE" d="M0 130 Q160 50 320 115 T640 95 T960 130 T1280 90 T1600 125 T1920 105 L1920 1520 Q1848 1660 1776 1568 Q1704 1500 1632 1552 Q1560 1710 1488 1580 Q1416 1504 1344 1548 Q1272 1672 1200 1560 Q1128 1502 1056 1546 Q984 1706 912 1576 Q840 1506 768 1548 Q696 1668 624 1556 Q552 1500 480 1544 Q408 1700 336 1572 Q264 1508 192 1550 Q120 1662 48 1560 L0 1600 Z"/>
+            <g fill="#F77ADE">
+              <circle cx="300" cy="1750" r="18"/><circle cx="760" cy="1800" r="14"/><circle cx="1180" cy="1760" r="20"/>
+              <circle cx="1560" cy="1820" r="12"/><circle cx="960" cy="1850" r="16"/><circle cx="90" cy="1720" r="10"/>
+              <circle cx="1830" cy="1770" r="15"/><circle cx="520" cy="1730" r="11"/>
+            </g>
+            <g fill="#ff9edd" opacity="0.55">
+              <circle cx="420" cy="380" r="22"/><circle cx="980" cy="460" r="26"/><circle cx="1560" cy="400" r="18"/>
+              <circle cx="700" cy="820" r="24"/><circle cx="1280" cy="900" r="20"/>
+              <circle cx="260" cy="1200" r="16"/><circle cx="1130" cy="1300" r="14"/><circle cx="1700" cy="1150" r="17"/>
+            </g>
+          </svg>
         </div>
       </div>
     </div>

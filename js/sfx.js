@@ -7,7 +7,23 @@
 
   var ctx = null, master = null, verb = null;
   var muted = false, ambienceOn = false;
-  try { muted = localStorage.getItem('ghf-muted') === '1'; } catch (e) { /* no storage */ }
+  var music = null;
+  var MUSIC_VOLUME = 0.22;
+
+  function startMusic() {
+    if (music) return;
+    music = new Audio('audio/background.mp3');
+    music.loop = true;
+    music.volume = 0;
+    var p = music.play();
+    if (p && p.catch) p.catch(function () { music = null; }); /* retry on next gesture */
+    var fade = setInterval(function () {
+      if (!music) { clearInterval(fade); return; }
+      var target = muted ? 0 : MUSIC_VOLUME;
+      music.volume = Math.min(target, music.volume + 0.015);
+      if (music.volume >= target) clearInterval(fade);
+    }, 90);
+  }
 
   function ensure() {
     if (ctx) {
@@ -127,6 +143,38 @@
     src.start(when);
   }
 
+  function splashNoise(when, vol) {
+    /* wet impact: noise burst with a fast-closing lowpass */
+    var src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(0.55);
+    var f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.Q.value = 0.9;
+    f.frequency.setValueAtTime(3400, when);
+    f.frequency.exponentialRampToValueAtTime(480, when + 0.42);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(vol, when + 0.018);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.5);
+    src.connect(f); f.connect(g); g.connect(master); g.connect(verb);
+    src.start(when);
+  }
+
+  function sweep(f0, f1, when, dur, vol) {
+    var src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(dur + 0.1);
+    var f = ctx.createBiquadFilter();
+    f.type = 'bandpass'; f.Q.value = 1.1;
+    f.frequency.setValueAtTime(f0, when);
+    f.frequency.exponentialRampToValueAtTime(f1, when + dur);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(vol, when + dur * 0.25);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    src.connect(f); f.connect(g); g.connect(master); g.connect(verb);
+    src.start(when);
+  }
+
   function whoosh(when, vol) {
     var src = ctx.createBufferSource();
     src.buffer = noiseBuffer(0.35);
@@ -206,6 +254,21 @@
     o.start(when); o.stop(when + dur + 0.05);
   }
 
+  /* sample-based cues (mp3 files); cloned per play so they can overlap */
+  var samples = {};
+  function playSample(name, vol) {
+    var base = samples[name];
+    if (!base) {
+      base = new Audio('audio/' + name + '.mp3');
+      base.preload = 'auto';
+      samples[name] = base;
+    }
+    var inst = base.cloneNode();
+    inst.volume = vol;
+    var p = inst.play();
+    if (p && p.catch) p.catch(function () { /* not unlocked yet */ });
+  }
+
   /* ---------- cues ---------- */
 
   var cues = {
@@ -266,6 +329,31 @@
     happy: function (t) {
       bell(1046.5, t, 0.09, 0.5);
       bell(1318.5, t + 0.1, 0.09, 0.6);
+    },
+    /* straws/lemons popping onto the glasses */
+    garnish: function (t) {
+      for (var i = 0; i < 4; i++) pop(t + i * 0.055, 0.06);
+      bell(1318.5, t + 0.12, 0.07, 0.45);
+      bell(1567.98, t + 0.24, 0.06, 0.45);
+    },
+    /* the customer pays: jingling coins fly to the counter */
+    coin: function () {
+      playSample('coin', 0.55);
+    },
+    /* the till rings when every customer has been served */
+    kaching: function () {
+      playSample('cash-register', 0.6);
+    },
+    /* juice splat bursts over the screen, then drains off the bottom */
+    splash: function (t) {
+      sweep(500, 1900, t, 0.55, 0.1);    /* liquid rushing outward */
+      splashNoise(t + 0.68, 0.22);       /* big wet SPLAT at full cover */
+      thud(t + 0.68, 0.18);
+      for (var i = 0; i < 7; i++) {      /* droplets pattering down */
+        blip(500 + Math.random() * 700, 280 + Math.random() * 300,
+          t + 0.78 + Math.random() * 0.5, 0.06, 0.05);
+      }
+      sweep(900, 180, t + 1.4, 0.9, 0.1); /* draining away */
     }
   };
 
@@ -310,9 +398,13 @@
   /* ---------- public API ---------- */
 
   window.SFX = {
-    /* call from a user gesture: creates/resumes the context, starts ambience */
+    /* call from a user gesture: creates/resumes the context,
+       starts the ambience and the background music */
     unlock: function () {
-      if (ensure()) startAmbience();
+      if (ensure()) {
+        startAmbience();
+        startMusic();
+      }
     },
     play: function (name) {
       if (muted || !ensure() || !cues[name]) return;
@@ -320,13 +412,14 @@
     },
     toggleMute: function () {
       muted = !muted;
-      try { localStorage.setItem('ghf-muted', muted ? '1' : '0'); } catch (e) { /* no storage */ }
       if (master) {
         master.gain.cancelScheduledValues(ctx.currentTime);
         master.gain.linearRampToValueAtTime(muted ? 0 : 0.5, ctx.currentTime + 0.15);
       }
+      if (music) music.volume = muted ? 0 : MUSIC_VOLUME;
       return muted;
     },
-    isMuted: function () { return muted; }
+    isMuted: function () { return muted; },
+    musicPlaying: function () { return !!(music && !music.paused); }
   };
 })();

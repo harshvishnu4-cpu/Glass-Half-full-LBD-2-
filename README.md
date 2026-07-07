@@ -4,15 +4,16 @@ A drag-and-drop learning game implemented from the
 [Figma design](https://www.figma.com/design/p2dk5xOnWCGxgnCU2mWm68/The-Glass-Half-Full-LBDs?node-id=629-634)
 using plain **HTML / CSS / JavaScript** with **GSAP** for animation.
 
-**Phase 1 — Sort:** drag the 12 glasses on the carnival shelf onto the right
-tray — **Empty**, **Half Full**, or **Full**. Wrong tray: the glass shakes
-and flies back. Right tray: it lands with a sparkle burst.
+**Phase 1 — Sort:** drag the 15 glasses on the carnival shelf onto the right
+tray — **Empty**, **Half Full**, or **Full** — guided by the dragon mascot's
+instruction banner. Wrong tray: the glass shakes and flies back. Right tray:
+it lands with a sparkle burst.
 
 **Phase 2 — Serve:** three spooky customers (a little reaper, a wolf, and a
 mummy) waddle up behind the counter. One at a time they ask — via a comic
 speech bubble — for a **Half Full** or **Full** glass at random; drag the
 right glass from the trays to the customer, who drinks it with a glug-glug.
-Serve all 8 drinks for the confetti finale.
+Serve all 10 drinks for the confetti finale.
 
 ## Run it
 
@@ -59,8 +60,9 @@ All SFX are synthesized live with the Web Audio API (`js/sfx.js`) — no audio
 files. The palette is "spooky, but friendly": a ghostly rise when you grab a
 glass, minor-key sparkle bells on a correct drop, a cartoon womp-womp on a
 wrong one, and a bell run with a ghost-choir pad for the win — over a soft
-night ambience of wind and a distant owl. The 🔊 button (top right) mutes
-everything and remembers the choice in `localStorage`.
+night ambience of wind and a distant owl. A looping background music track
+(`audio/background.mp3`) fades in underneath. Audio starts on the first tap
+or click (browser autoplay policy).
 
 ## Testing
 
