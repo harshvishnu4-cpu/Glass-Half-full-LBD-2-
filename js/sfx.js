@@ -8,7 +8,8 @@
   var ctx = null, master = null, verb = null;
   var muted = false, ambienceOn = false;
   var music = null;
-  var MUSIC_VOLUME = 0.22;
+  var MUSIC_VOLUME = 0.12;   /* soft bed so the SFX sit clearly on top */
+  var SFX_VOLUME = 0.62;     /* effects a touch louder than the music */
 
   function startMusic() {
     if (music) return;
@@ -34,7 +35,7 @@
     if (!AC) return false;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = muted ? 0 : 0.5;
+    master.gain.value = muted ? 0 : SFX_VOLUME;
     master.connect(ctx.destination);
     /* generated impulse response = cheap ghostly hall */
     verb = ctx.createConvolver();
@@ -336,6 +337,10 @@
       bell(1318.5, t + 0.12, 0.07, 0.45);
       bell(1567.98, t + 0.24, 0.06, 0.45);
     },
+    /* soft blip for each typed letter in Agni's dialogue */
+    type: function (t) {
+      blip(650, 720, t, 0.03, 0.028);
+    },
     /* the customer pays: jingling coins fly to the counter */
     coin: function () {
       playSample('coin', 0.55);
@@ -414,7 +419,7 @@
       muted = !muted;
       if (master) {
         master.gain.cancelScheduledValues(ctx.currentTime);
-        master.gain.linearRampToValueAtTime(muted ? 0 : 0.5, ctx.currentTime + 0.15);
+        master.gain.linearRampToValueAtTime(muted ? 0 : SFX_VOLUME, ctx.currentTime + 0.15);
       }
       if (music) music.volume = muted ? 0 : MUSIC_VOLUME;
       return muted;

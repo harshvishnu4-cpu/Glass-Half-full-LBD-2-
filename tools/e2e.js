@@ -62,7 +62,7 @@ function expect(label, actual, wanted) {
   const placed = () => page.evaluate(() => window.__game.placed);
   const types = await page.evaluate(() =>
     Array.from(document.querySelectorAll('.glass img')).map((i) => i.alt.split(' ')[0]));
-  expect('glass count', types.length, 15);
+  expect('glass count', types.length, 9);
 
   await page.screenshot({ path: path.join(SHOTS, '0-start.png') });
 
@@ -80,7 +80,7 @@ function expect(label, actual, wanted) {
   // 2. sort everything correctly
   const zoneFor = { empty: '#zone-empty', half: '#zone-half', full: '#zone-full' };
   for (let i = 0; i < types.length; i++) await dragTo(i, zoneFor[types[i]]);
-  expect('placed after sorting all', await placed(), 15);
+  expect('placed after sorting all', await placed(), 9);
   await page.screenshot({ path: path.join(SHOTS, '2b-sorted.png') });
 
   // 3. phase 2: customers walk in and demand drinks
@@ -95,14 +95,14 @@ function expect(label, actual, wanted) {
   await page.click('#strawbox');
   await sleep(900);
   expect('straws added to all glasses', await page.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('.glass'));
-    return els.length === 10 && els.every((el) => el.querySelector('.straw'));
+    const gs = window.__game.glasses;
+    return gs.length === 6 && gs.every((g) => g.hasStraw && /garnish-\w+-straw/.test(g.img.src));
   }), true);
   await page.click('#lemonbox');
   await sleep(900);
   expect('lemons added to all glasses', await page.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('.glass'));
-    return els.length === 10 && els.every((el) => el.querySelector('.lemon'));
+    const gs = window.__game.glasses;
+    return gs.length === 6 && gs.every((g) => g.hasLemon && /garnish-\w+-both/.test(g.img.src));
   }), true);
   await page.screenshot({ path: path.join(SHOTS, '3b-garnished.png') });
 
@@ -116,20 +116,20 @@ function expect(label, actual, wanted) {
   await sleep(500);
   expect('served after wrong serve', await served(), 0);
 
-  // serve all 10 correctly
+  // serve all 6 correctly
   let rounds = 0;
-  while ((await served()) < 10 && rounds++ < 16) {
+  while ((await served()) < 6 && rounds++ < 12) {
     demand = await page.evaluate(() => window.__game.demand);
     if (!demand) { await sleep(400); continue; }
     const before = await served();
     await dragTo(await glassIdxOf(demand), '#zone-customer');
     await page.waitForFunction((n) => window.__game.served === n + 1, { timeout: 6000 }, before);
     await page.waitForFunction(
-      () => window.__game.demand !== null || window.__game.served === 10, { timeout: 10000 });
+      () => window.__game.demand !== null || window.__game.served === 6, { timeout: 10000 });
   }
-  expect('customers served', await served(), 10);
+  expect('customers served', await served(), 6);
   await sleep(2000); // last coin flight
-  expect('coins collected', await page.evaluate(() => window.__game.coins), 10);
+  expect('coins collected', await page.evaluate(() => window.__game.coins), 6);
 
   await sleep(2600); // win overlay + confetti
   await page.screenshot({ path: path.join(SHOTS, '4-win.png') });
@@ -142,7 +142,7 @@ function expect(label, actual, wanted) {
   await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('#replay')]);
   await sleep(1500);
   expect('placed after replay', await placed(), 0);
-  expect('glasses after replay', await page.evaluate(() => document.querySelectorAll('.glass').length), 15);
+  expect('glasses after replay', await page.evaluate(() => document.querySelectorAll('.glass').length), 9);
   await page.screenshot({ path: path.join(SHOTS, '5-replay.png') });
 
   console.log('page errors:', errors.length ? errors.join(' | ') : 'none');

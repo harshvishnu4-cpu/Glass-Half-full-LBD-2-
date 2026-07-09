@@ -13,9 +13,7 @@
       <!-- Scene layers (exported from Figma, WebP) -->
       <img class="layer" id="bg"     src="assets/img/bg.webp"        alt="">
       <img class="layer" id="ground" src="assets/img/ground.webp"    alt="">
-      <img class="layer" id="post"   src="assets/img/post-left.webp" alt="">
       <img class="layer" id="trays"  src="assets/img/trays.webp"     alt="">
-      <img class="layer" id="topbar" src="assets/img/topbar.webp"    alt="">
 
       <!-- Phase 2: spooky customers & serving counter (hidden until sorting is done) -->
       <div id="customer-layer">
@@ -41,12 +39,13 @@
 
       <!-- Gold plaques -->
       <div class="plaque" id="plaque-empty"><span>Empty</span></div>
-      <div class="plaque" id="plaque-half"><span>Half Full</span></div>
+      <div class="plaque" id="plaque-half"><span>Half</span></div>
       <div class="plaque" id="plaque-full"><span>Full</span></div>
-      <div class="plaque phase2" id="plaque2-half"><span>Half Full</span></div>
+      <div class="plaque phase2" id="plaque2-half"><span>Half</span></div>
       <div class="plaque phase2" id="plaque2-full"><span>Full</span></div>
 
       <img id="demand-bubble" src="assets/img/bubble-half.svg" alt="Customer order">
+      <div id="serve-bubble">Yummy!</div>
       <div id="phase-banner">Great Sorting!</div>
 
       <!-- mascot instruction banner -->
@@ -57,22 +56,23 @@
         <img id="mascot" src="assets/img/dragon.webp" alt="Dragon mascot">
       </div>
 
-      <div id="tut-hand">👆</div>
+      <!-- tutorial mascot: full-body Agni + comic speech bubble (tutorial only) -->
+      <div id="tut-mascot">
+        <div id="tut-mascot-bubble"><span id="tut-mascot-text"></span></div>
+        <img id="tut-mascot-img" src="assets/img/agni-full.webp" alt="Agni the dragon">
+      </div>
 
       <div id="fx-layer"></div>
 
+      <!-- end / success screen (SOLD OUT celebration art) -->
       <div id="win-overlay">
-        <div class="win-inner">
-          <h1>Well Done!</h1>
-          <p>You sorted all 12 glasses!</p>
-          <button id="replay">Play Again</button>
-        </div>
+        <img id="win-bg" src="assets/img/endscreen.webp" alt="Sold out! You served every customer.">
+        <button id="replay">Play Again</button>
       </div>
 
-      <!-- title screen -->
+      <!-- title screen (Spooky Rush logo art) -->
       <div id="title-screen">
-        <img id="title-bg" src="assets/img/title.webp" alt="">
-        <h1 id="game-title">The Glass Half Full</h1>
+        <img id="title-bg" src="assets/img/title.webp" alt="Spooky Rush">
         <button id="play-btn" aria-label="Play"><img src="assets/img/playbutton.svg" alt="Play"></button>
       </div>
 

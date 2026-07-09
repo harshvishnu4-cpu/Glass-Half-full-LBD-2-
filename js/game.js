@@ -10,30 +10,29 @@
     empty: { src: 'assets/img/glass-empty.webp', w: 92, h: 137 }
   };
 
-  /* Shelf line-up from the Figma frame: 15 identical tumblers (5 of each
-     fill level), evenly spaced from x=99 to x=1767. */
+  /* Shelf line-up from the Figma frame (node 670:1298): 9 tumblers (3 of each
+     fill level), evenly spaced across the shelf centre (group x 362..1559). */
   var START_GLASSES = (function () {
-    var seq = ['half', 'full', 'empty', 'empty', 'full', 'half', 'half', 'full',
-      'empty', 'half', 'full', 'empty', 'half', 'full', 'empty'];
+    var seq = ['half', 'full', 'empty', 'full', 'half', 'full', 'empty', 'half', 'empty'];
     return seq.map(function (type, i) {
-      return { type: type, x: Math.round(99 + i * (1668 / 14)) };
+      return { type: type, x: Math.round(362 + i * ((1559 - 92 - 362) / 8)) };
     });
   })();
   var SHELF_BOTTOM = 621;
 
-  /* Five landing spots per tray: one flat row, same baseline, evenly
+  /* Three landing spots per tray: one flat row, same baseline, evenly
      spaced — identical alignment on every tray, glasses at full size. */
   function rowSlots(gap) {
-    return [-2, -1, 0, 1, 2].map(function (m) {
+    return [-1, 0, 1].map(function (m) {
       return { dx: m * gap, bottom: 940, s: 1 };
     });
   }
   /* centerX values are measured from the tray artwork at the glass
      baseline (y=940), so each row sits dead-centre on its tray */
   var TRAYS = {
-    empty: { zone: { x: 90,   y: 700, w: 550, h: 365 }, centerX: 360,  count: 0, slots: rowSlots(84) },
-    half:  { zone: { x: 672,  y: 700, w: 578, h: 365 }, centerX: 957,  count: 0, slots: rowSlots(84) },
-    full:  { zone: { x: 1290, y: 700, w: 550, h: 365 }, centerX: 1564, count: 0, slots: rowSlots(84) }
+    empty: { zone: { x: 90,   y: 700, w: 550, h: 365 }, centerX: 360,  count: 0, slots: rowSlots(130) },
+    half:  { zone: { x: 672,  y: 700, w: 578, h: 365 }, centerX: 957,  count: 0, slots: rowSlots(130) },
+    full:  { zone: { x: 1290, y: 700, w: 550, h: 365 }, centerX: 1564, count: 0, slots: rowSlots(130) }
   };
 
   /* Phase 2 (serving): spooky customers ask for half-full or full glasses.
@@ -79,16 +78,21 @@
     'Let\'s keep similar drinks together!',
     'This glass is full. Put it in the correct tray.',
     'Great! Now let\'s serve our customers.',
-    'Drag the correct drink to the customer.',
+    'First, tap the lemon and straw to dress every drink!',
+    'Now drag the correct drink to the customer.',
     'Awesome! You\'re ready to serve everyone!'
   ];
+
+  /* happy things the customers say the moment they get their drink */
+  var SERVE_LINES = ['Yummy!', 'Thank you!', 'Delicious!', 'So good!', 'Mmm, tasty!', 'Perfect!'];
 
   var state = {
     glasses: [], placed: 0, topZ: 500, locked: false,
     phase: 1, served: 0, demand: null, active: null,
-    stock: { half: 5, full: 5 }, demandQueue: [],
+    stock: { half: 3, full: 3 }, demandQueue: [],
     firstSortDone: false, firstServeDone: false, tutTimers: [],
-    wrongStreak: 0, coins: 0
+    wrongStreak: 0, coins: 0, hintGlass: null,
+    strawTapped: false, lemonTapped: false, traysCentered: false
   };
 
   function shuffle(arr) {
@@ -132,7 +136,7 @@
     var g = {
       el: el, img: img, type: type,
       x: x, y: top, w: spec.w, h: spec.h,
-      placed: false, drag: null,
+      placed: false, drag: null, homeX: 0,
       setX: gsap.quickSetter(el, 'x', 'px'),
       setY: gsap.quickSetter(el, 'y', 'px')
     };
@@ -153,7 +157,7 @@
   function buildGlasses2() {
     ['half', 'full'].forEach(function (type) {
       var spec = GLASS_TYPES[type];
-      rowSlots(84).forEach(function (slot, i) {
+      rowSlots(130).forEach(function (slot, i) {
         var cx = PHASE2.trayCenters[type] + slot.dx;
         var g = createGlass(type, cx - spec.w / 2, slot.bottom - spec.h);
         g.el.style.zIndex = 150 + i;
@@ -259,6 +263,7 @@
       state.firstSortDone = true;
       clearTutTimers();
       stopSortHint();
+      hideTutMascot(true); /* dismiss Agni if the player dropped mid-intro */
       agniSays('Sort the glasses into correct trays.');
     } else if (hadHint) {
       bannerText.textContent = 'Sort the glasses into correct trays.';
@@ -313,6 +318,67 @@
     state.tutTimers.push(gsap.delayedCall(delay, fn));
   }
 
+  /* full-body Agni + speech bubble for the guided tutorial (design node 670-2) */
+  var tutMascot = document.getElementById('tut-mascot');
+  var tutMascotImg = document.getElementById('tut-mascot-img');
+  var tutMascotBubble = document.getElementById('tut-mascot-bubble');
+  var tutMascotText = document.getElementById('tut-mascot-text');
+  var tutMascotIn = false;
+  var typeCall = null;
+
+  /* reveal the line one character at a time, with a soft blip per letter */
+  function typewrite(text, startDelay) {
+    if (typeCall) { typeCall.kill(); typeCall = null; }
+    tutMascotText.textContent = '';
+    var i = 0;
+    function step() {
+      if (i >= text.length) { typeCall = null; return; }
+      var ch = text.charAt(i);
+      tutMascotText.textContent += ch;
+      i += 1;
+      if (ch !== ' ') SFX.play('type'); /* blip on visible glyphs only */
+      typeCall = gsap.delayedCall(ch === ' ' ? 0.02 : 0.045, step);
+    }
+    typeCall = gsap.delayedCall(startDelay || 0, step);
+  }
+
+  function showTutMascot(text) {
+    if (!tutMascotIn) {
+      tutMascotIn = true;
+      SFX.play('ask');
+      /* the top banner steps aside; Agni strolls in from the right */
+      gsap.to('#banner', { autoAlpha: 0, y: -60, duration: 0.35, ease: 'power2.in' });
+      gsap.set(tutMascot, { visibility: 'visible' });
+      gsap.fromTo(tutMascotImg, { x: 380, autoAlpha: 0 },
+        { x: 0, autoAlpha: 1, duration: 0.6, ease: 'power3.out' });
+      gsap.fromTo(tutMascotBubble, { autoAlpha: 0, scale: 0.3 },
+        { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'back.out(2)', delay: 0.35, transformOrigin: '80% 100%' });
+      typewrite(text, 0.7); /* start typing once the bubble has popped in */
+    } else {
+      /* already on screen — pop the bubble and retype the new line */
+      SFX.play('ask');
+      gsap.fromTo(tutMascotBubble, { scale: 0.9 },
+        { scale: 1, duration: 0.3, ease: 'back.out(2.4)', transformOrigin: '80% 100%' });
+      typewrite(text, 0.2);
+    }
+    /* friendly gesture wiggle */
+    gsap.fromTo(tutMascotImg, { rotation: -2 },
+      { rotation: 2, duration: 0.14, yoyo: true, repeat: 3, ease: 'sine.inOut',
+        onComplete: function () { gsap.set(tutMascotImg, { rotation: 0 }); } });
+  }
+
+  function hideTutMascot(restoreBanner) {
+    if (typeCall) { typeCall.kill(); typeCall = null; }
+    if (!tutMascotIn) { if (restoreBanner) gsap.set('#banner', { autoAlpha: 1, y: 0 }); return; }
+    tutMascotIn = false;
+    gsap.to(tutMascotBubble, { autoAlpha: 0, scale: 0.4, duration: 0.25, ease: 'back.in(1.6)' });
+    gsap.to(tutMascotImg, { x: 420, autoAlpha: 0, duration: 0.5, ease: 'power2.in',
+      onComplete: function () { gsap.set(tutMascot, { visibility: 'hidden' }); } });
+    if (restoreBanner) {
+      gsap.to('#banner', { autoAlpha: 1, y: 0, duration: 0.45, ease: 'power3.out', delay: 0.15 });
+    }
+  }
+
   function clearTutTimers() {
     state.tutTimers.forEach(function (t) { t.kill(); });
     state.tutTimers = [];
@@ -330,45 +396,71 @@
     }
   }
 
-  /* animated hand that demonstrates dragging the glass to its tray */
-  var tutHand = document.getElementById('tut-hand');
-  var handTl = null;
+  /* a translucent "ghost" of the glass lifts and glides to its tray, on a
+     loop, so the player sees the glass is draggable and where it goes */
+  var ghostTl = null, ghostGlassEl = null;
 
   function startHandDemo(g) {
-    var fx = g.x + g.w / 2 - 24;
-    var fy = g.y + g.h - 40;
-    var tx = TRAYS[g.type].centerX - 24;
-    var ty = 860;
-    handTl = gsap.timeline({ repeat: -1, repeatDelay: 0.7 });
-    handTl.set(tutHand, { x: fx, y: fy, scale: 1, autoAlpha: 0 })
-      .to(tutHand, { autoAlpha: 1, duration: 0.25 })
-      .to(tutHand, { scale: 0.8, duration: 0.18, ease: 'power2.out' }) /* press */
-      .to(tutHand, { x: tx, y: ty, duration: 1.05, ease: 'power1.inOut' })
-      .to(tutHand, { scale: 1, duration: 0.18 }) /* release */
-      .to(tutHand, { autoAlpha: 0, duration: 0.25 });
+    stopHandDemo();
+    var spec = GLASS_TYPES[g.type];
+    ghostGlassEl = document.createElement('img');
+    ghostGlassEl.src = spec.src;
+    ghostGlassEl.className = 'glass-ghost';
+    ghostGlassEl.style.width = g.w + 'px';
+    ghostGlassEl.style.height = g.h + 'px';
+    glassLayer.appendChild(ghostGlassEl);
+
+    var tray = TRAYS[g.type];
+    var slot = tray.slots[tray.count] || tray.slots[0];
+    var fromX = g.x, fromY = g.y;
+    var toX = tray.centerX + slot.dx - g.w / 2;
+    var toY = slot.bottom - g.h;
+    var midY = Math.min(fromY, toY) - 90;       /* lift arc on the way over */
+
+    gsap.set(ghostGlassEl, { x: fromX, y: fromY, scale: 1, autoAlpha: 0, transformOrigin: '50% 100%' });
+    ghostTl = gsap.timeline({ repeat: -1, repeatDelay: 0.75 });
+    ghostTl
+      .to(ghostGlassEl, { autoAlpha: 0.65, duration: 0.3 })                       /* appears */
+      .to(ghostGlassEl, { y: fromY - 34, scale: 1.08, duration: 0.32, ease: 'power2.out' }) /* picked up */
+      .to(ghostGlassEl, { x: toX, keyframes: { y: [fromY - 34, midY, toY] },
+        duration: 1.1, ease: 'power1.inOut' })                                    /* dragged to tray */
+      .to(ghostGlassEl, { scale: 1, duration: 0.16, ease: 'power1.in' })          /* set down */
+      .to(ghostGlassEl, { autoAlpha: 0, duration: 0.3 });                         /* released, fades */
   }
 
   function stopHandDemo() {
-    if (handTl) { handTl.kill(); handTl = null; }
-    gsap.to(tutHand, { autoAlpha: 0, duration: 0.2, overwrite: 'auto' });
+    if (ghostTl) { ghostTl.kill(); ghostTl = null; }
+    if (ghostGlassEl) { ghostGlassEl.remove(); ghostGlassEl = null; }
   }
 
-  /* pulse a full glass, glow its tray, and demonstrate the drag */
-  function startSortHint() {
-    var g = null;
+  /* spotlight one full glass — fired the moment Agni says "This glass is full",
+     so kids connect the words to the glowing, pulsing glass */
+  function highlightFullGlass() {
+    state.hintGlass = null;
     for (var i = 0; i < state.glasses.length; i++) {
-      if (state.glasses[i].type === 'full' && !state.glasses[i].placed) { g = state.glasses[i]; break; }
+      if (state.glasses[i].type === 'full' && !state.glasses[i].placed) { state.hintGlass = state.glasses[i]; break; }
     }
+    var g = state.hintGlass;
     if (!g) return;
-    gsap.to(g.img, { scale: 1.14, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    g.el.classList.add('highlight');
+    gsap.to(g.img, { scale: 1.16, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+  }
+
+  /* add the glowing tray + ghost drag demo for the hands-on step */
+  function startSortHint() {
+    if (!state.hintGlass || state.hintGlass.placed) highlightFullGlass();
+    var g = state.hintGlass;
+    if (!g) return;
     hintZone('full');
     startHandDemo(g);
   }
 
   function stopSortHint() {
     state.glasses.forEach(function (g) {
+      g.el.classList.remove('highlight');
       if (!g.placed) gsap.to(g.img, { scale: 1, duration: 0.25, overwrite: 'auto' });
     });
+    state.hintGlass = null;
     clearZoneHints();
     stopHandDemo();
   }
@@ -444,14 +536,9 @@
   function phase2Intro() {
     SFX.play('win');
     confettiBurst(50);
-    banner.textContent = TUT[3]; /* "Great! Now let's serve our customers." */
-    gsap.fromTo(banner, { autoAlpha: 0, scale: 0.4 },
-      { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'back.out(1.8)' });
-    gsap.to(banner, {
-      autoAlpha: 0, y: -50, delay: 1.6, duration: 0.4, ease: 'power2.in',
-      onComplete: function () { gsap.set(banner, { y: 0 }); }
-    });
-    gsap.delayedCall(2.0, transitionToPhase2);
+    showTutMascot(TUT[3]); /* Agni: "Great! Now let's serve our customers." */
+    gsap.delayedCall(3.2, function () { hideTutMascot(false); });
+    gsap.delayedCall(3.6, transitionToPhase2);
   }
 
   function transitionToPhase2() {
@@ -468,13 +555,15 @@
       gsap.set(['#trays2', '#lemonbox', '#strawbox', '#plaque2-half', '#plaque2-full'],
         { autoAlpha: 1, x: 0, y: 0 });
       buildGlasses2();
-      /* one shuffled deck of all ten orders — well mixed, never runs dry */
-      state.demandQueue = shuffle(['half', 'half', 'half', 'half', 'half',
-        'full', 'full', 'full', 'full', 'full']);
+      /* one shuffled deck of all six orders — well mixed, never runs dry */
+      state.demandQueue = shuffle(['half', 'half', 'half', 'full', 'full', 'full']);
     }, function () {
-      state.locked = false;
-      agniSays(TUT[4]); /* "Drag the correct drink to the customer." */
-      gsap.delayedCall(0.4, startRound);
+      bannerText.textContent = 'Give each customer what they ask for!';
+      showTutMascot(TUT[4]); /* Agni: "First, tap the lemon and straw..." */
+      startGarnishNudge();   /* the garnish boxes glow & bob until tapped */
+      gsap.delayedCall(3.4, function () { showTutMascot(TUT[5]); }); /* "...drag the correct drink" */
+      gsap.delayedCall(6.6, function () { hideTutMascot(true); });
+      gsap.delayedCall(6.9, function () { state.locked = false; startRound(); });
     });
   }
 
@@ -546,11 +635,12 @@
     gsap.to(demandBubble, { autoAlpha: 0, scale: 0.5, duration: 0.3, ease: 'back.in(1.6)' });
   }
 
-  /* the customer's coin arcs onto the counter, then is collected (vanishes) */
+  /* the customer's coin arcs onto the counter, then is collected (vanishes).
+     it lands on the clear left margin so it never overlaps the centred trays */
   function giveCoin() {
     state.coins += 1;
-    var lx = gsap.utils.random(180, 520);
-    var ly = gsap.utils.random(945, 1005);
+    var lx = gsap.utils.random(70, 220);
+    var ly = gsap.utils.random(945, 1000);
     var coin = document.createElement('img');
     coin.src = 'assets/img/coins.svg';
     coin.className = 'coin-fly';
@@ -577,15 +667,15 @@
     state.wrongStreak = 0;
     clearServeHint();
 
-    /* first successful serve: Agni cheers, then back to the standing tip */
+    /* first successful serve: Agni cheers, then steps aside for free play */
     if (!state.firstServeDone) {
       state.firstServeDone = true;
-      gsap.delayedCall(0.9, function () {
-        agniSays(TUT[5]); /* "Awesome! You're ready to serve everyone!" */
+      gsap.delayedCall(0.8, function () {
+        showTutMascot(TUT[6]); /* Agni: "Awesome! You're ready to serve everyone!" */
       });
-      gsap.delayedCall(3.6, function () {
+      gsap.delayedCall(4.2, function () {
         bannerText.textContent = 'Give each customer what they ask for!';
-        gsap.fromTo(bannerText, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 });
+        hideTutMascot(true);
       });
     }
 
@@ -604,11 +694,25 @@
         burstSparks(SERVE_X, 420);
       }, 0.45);
 
-    /* happy customer wiggle, pays a coin, then off they waddle */
+    /* happy customer wiggle, a grateful word, pays a coin, then off they waddle */
     gsap.to(c.el, { scaleY: 1.05, duration: 0.16, yoyo: true, repeat: 3, ease: 'sine.inOut', delay: 0.45 });
+    gsap.delayedCall(0.6, function () { showServeFeedback(c); });
     gsap.delayedCall(0.8, giveCoin);
     gsap.delayedCall(2.1, function () { walkOut(c); });
     gsap.delayedCall(3.0, startRound);
+  }
+
+  /* the served customer beams a little thank-you bubble above their head */
+  var serveBubble = document.getElementById('serve-bubble');
+  function showServeFeedback(c) {
+    serveBubble.textContent = SERVE_LINES[Math.floor(Math.random() * SERVE_LINES.length)];
+    gsap.killTweensOf(serveBubble);
+    gsap.set(serveBubble, { visibility: 'visible', left: SERVE_X + 'px', xPercent: -50 });
+    gsap.fromTo(serveBubble, { autoAlpha: 0, scale: 0.3, y: 22 },
+      { autoAlpha: 1, scale: 1, y: 0, duration: 0.4, ease: 'back.out(2.4)' });
+    SFX.play('happy');
+    gsap.to(serveBubble, { autoAlpha: 0, scale: 0.6, duration: 0.3, delay: 1.5, ease: 'back.in(1.6)',
+      onComplete: function () { gsap.set(serveBubble, { visibility: 'hidden' }); } });
   }
 
   /* pulse the glasses that match the current order */
@@ -647,29 +751,107 @@
   function finalWin() {
     state.locked = true;
     hideDemandBubble();
+    stopGarnishNudge();
     SFX.play('kaching'); /* the till rings: all customers paid! */
-    document.querySelector('.win-inner p').textContent = 'You served all the customers!';
     showWin();
   }
+
+  /* pre-composed glass+garnish art with the exact placement inside the 92x136
+     glass box (from tools/build-garnish.js). straw pokes above, lemon juts left. */
+  var GARNISH_ART = {
+    full: {
+      straw: { src: 'assets/img/garnish-full-straw.webp', w: 102.2, h: 179.8, left: 1.2, top: -43.8 },
+      lemon: { src: 'assets/img/garnish-full-lemon.webp', w: 108.1, h: 142.5, left: -17.4, top: -6.5 },
+      both:  { src: 'assets/img/garnish-full-both.webp', w: 118.8, h: 179, left: -15.1, top: -43 }
+    },
+    half: {
+      straw: { src: 'assets/img/garnish-half-straw.webp', w: 104.8, h: 182.7, left: 1.5, top: -46.7 },
+      lemon: { src: 'assets/img/garnish-half-lemon.webp', w: 114.6, h: 147.3, left: -23.3, top: -11.3 },
+      both:  { src: 'assets/img/garnish-half-both.webp', w: 127, h: 182.7, left: -20.7, top: -46.7 }
+    }
+  };
+  // warm the browser cache so the swap is instant
+  Object.keys(GARNISH_ART).forEach(function (t) {
+    Object.keys(GARNISH_ART[t]).forEach(function (v) { new Image().src = GARNISH_ART[t][v].src; });
+  });
+
+  /* swap a glass to its composed garnish art, aligning the glass body exactly
+     and popping the new garnish up from the glass base */
+  function applyGarnishArt(g) {
+    var variant = g.hasStraw && g.hasLemon ? 'both' : (g.hasStraw ? 'straw' : 'lemon');
+    var art = GARNISH_ART[g.type] && GARNISH_ART[g.type][variant];
+    if (!art) return;
+    g.img.src = art.src;
+    gsap.killTweensOf(g.img);
+    gsap.set(g.img, { position: 'absolute', left: art.left + 'px', top: art.top + 'px',
+      width: art.w + 'px', height: art.h + 'px', transformOrigin: '50% 100%', rotation: 0 });
+    gsap.fromTo(g.img, { scale: 0.82 }, { scale: 1, duration: 0.5, ease: 'back.out(2.2)' });
+    burstSparks(g.x + g.w / 2, g.y + 6); /* sparkle at the rim */
+  }
+
+  /* nudge: the garnish boxes glow and gently bob so kids know to tap them
+     before serving — each box stops once it's been used */
+  function nudgeBox(id, on) {
+    var el = document.getElementById(id);
+    gsap.killTweensOf(el);
+    if (on) {
+      el.classList.add('nudge-glow');
+      gsap.set(el, { transformOrigin: '50% 100%' });
+      gsap.to(el, { scale: 1.05, duration: 0.6, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    } else {
+      el.classList.remove('nudge-glow');
+      gsap.to(el, { scale: 1, duration: 0.25, overwrite: 'auto' });
+    }
+  }
+  function startGarnishNudge() { nudgeBox('lemonbox', true); nudgeBox('strawbox', true); }
+  function stopGarnishNudge() { nudgeBox('lemonbox', false); nudgeBox('strawbox', false); }
 
   /* tapping a garnish box dresses every glass on the trays */
   function addGarnish(kind, boxEl) {
     if (state.phase !== 2 || state.locked) return;
     SFX.unlock();
+    var flag = kind === 'straw' ? 'hasStraw' : 'hasLemon';
+    /* this box has done its job — stop nudging it and give it a tap-pop */
+    boxEl.classList.remove('nudge-glow');
+    gsap.killTweensOf(boxEl);
     gsap.set(boxEl, { transformOrigin: '50% 100%' });
     gsap.fromTo(boxEl, { scale: 1 }, { scale: 1.08, duration: 0.12, yoyo: true, repeat: 1, ease: 'power1.inOut' });
     var added = 0;
-    state.glasses.forEach(function (g) {
-      if (g.placed || g.el.querySelector('.' + kind)) return;
-      var img = document.createElement('img');
-      img.src = 'assets/img/' + kind + '.webp';
-      img.className = 'garnish ' + kind;
-      g.el.appendChild(img);
-      gsap.set(img, { transformOrigin: '50% 100%' });
-      gsap.from(img, { scale: 0, rotation: -25, duration: 0.45, ease: 'back.out(2.5)', delay: 0.045 * added });
+    state.glasses.forEach(function (g, i) {
+      if (g.placed || g[flag]) return;
+      g[flag] = true;
+      gsap.delayedCall(0.05 * added, function () { applyGarnishArt(g); });
       added += 1;
     });
     SFX.play(added ? 'garnish' : 'click');
+
+    /* once both garnishes are on, clear the boxes away and slide the two
+       serving trays into the middle of the counter */
+    if (kind === 'straw') state.strawTapped = true; else state.lemonTapped = true;
+    if (state.strawTapped && state.lemonTapped && !state.traysCentered) {
+      state.traysCentered = true;
+      gsap.delayedCall(0.35, centerServingTrays);
+    }
+  }
+
+  /* remove the lemon/straw boxes and glide the Half + Full trays (with their
+     plaques and glasses) so the pair sits centred on the stage */
+  function centerServingTrays() {
+    stopGarnishNudge();
+    var dx = 960 - (PHASE2.trayCenters.half + PHASE2.trayCenters.full) / 2;
+    gsap.to(['#lemonbox', '#strawbox'], {
+      x: '-=460', autoAlpha: 0, duration: 0.5, ease: 'power2.in',
+      onComplete: function () { gsap.set(['#lemonbox', '#strawbox'], { display: 'none' }); }
+    });
+    gsap.to(['#trays2', '#plaque2-half', '#plaque2-full'],
+      { x: '+=' + dx, duration: 0.75, ease: 'power2.inOut' });
+    state.glasses.forEach(function (g) {
+      if (g.placed) return; /* served glasses are already gone */
+      g.homeX += dx; /* so a rejected serve returns to the centred spot */
+      gsap.to(g.el, { x: '+=' + dx, duration: 0.75, ease: 'power2.inOut' });
+    });
+    PHASE2.trayCenters.half += dx;
+    PHASE2.trayCenters.full += dx;
   }
   document.getElementById('strawbox').addEventListener('pointerdown', function () {
     addGarnish('straw', this);
@@ -695,7 +877,7 @@
 
   function returnHome(g) {
     gsap.to(g.el, {
-      x: 0, y: 0, scale: 1, duration: 0.55, ease: 'power3.out',
+      x: g.homeX, y: 0, scale: 1, duration: 0.55, ease: 'power3.out',
       onComplete: function () {
         SFX.play('land');
         if (!g.placed) startIdle(g);
@@ -747,17 +929,28 @@
   }
 
   var CONFETTI_COLORS = ['#e23b4b', '#ffc93c', '#ff7bd1', '#7be0ff', '#b6f36a', '#ffa74f'];
+  /* spooky-carnival confetti: friendly Halloween glyphs rain down mixed
+     with a few colourful paper bits */
+  var CONFETTI_GLYPHS = ['🎃', '👻', '🦇', '⭐', '🍬', '🍭'];
 
   function confettiBurst(count) {
     for (var i = 0; i < count; i++) {
       var c = document.createElement('div');
       c.className = 'confetti';
-      var w = gsap.utils.random(9, 16);
-      c.style.width = w + 'px';
-      c.style.height = gsap.utils.random(9, 20) + 'px';
-      c.style.background = gsap.utils.random(CONFETTI_COLORS);
+      if (Math.random() < 0.6) {
+        /* themed glyph */
+        c.textContent = gsap.utils.random(CONFETTI_GLYPHS);
+        c.style.fontSize = gsap.utils.random(26, 48) + 'px';
+        c.style.lineHeight = '1';
+        c.style.filter = 'drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35))';
+      } else {
+        /* colourful paper bit */
+        c.style.width = gsap.utils.random(9, 16) + 'px';
+        c.style.height = gsap.utils.random(9, 20) + 'px';
+        c.style.background = gsap.utils.random(CONFETTI_COLORS);
+        if (Math.random() < 0.35) c.style.borderRadius = '50%';
+      }
       c.style.left = gsap.utils.random(0, 1920) + 'px';
-      if (Math.random() < 0.35) c.style.borderRadius = '50%';
       fxLayer.appendChild(c);
       gsap.to(c, {
         y: 1180,
@@ -780,12 +973,8 @@
     confettiBurst(90);
     gsap.set(winOverlay, { visibility: 'visible' });
     gsap.to(winOverlay, { opacity: 1, duration: 0.4 });
-    gsap.fromTo('.win-inner h1', { scale: 0.3, rotation: -6 },
-      { scale: 1, rotation: 0, duration: 0.7, ease: 'back.out(1.8)', delay: 0.15 });
-    gsap.fromTo('.win-inner p', { autoAlpha: 0, y: 30 },
-      { autoAlpha: 1, y: 0, duration: 0.5, delay: 0.5 });
-    gsap.fromTo('#replay', { autoAlpha: 0, scale: 0.5 },
-      { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'back.out(2)', delay: 0.7 });
+    gsap.fromTo('#win-bg', { scale: 1.06 }, { scale: 1, duration: 0.6, ease: 'power2.out' });
+    gsap.fromTo('#replay', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, delay: 0.6 });
     gsap.delayedCall(1.4, function () { confettiBurst(60); });
   }
 
@@ -803,7 +992,6 @@
 
   function showTitle() {
     /* the title pops once and stays still — only the play button pulses */
-    gsap.from('#game-title', { scale: 0.3, rotation: -4, autoAlpha: 0, duration: 0.7, ease: 'back.out(1.6)', delay: 0.15 });
     gsap.from(playBtn, { scale: 0, autoAlpha: 0, duration: 0.6, ease: 'back.out(2.2)', delay: 0.55 });
     gsap.to(playBtn, { scale: 1.07, duration: 0.8, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 1.2 });
   }
@@ -829,21 +1017,27 @@
   /* ---------- intro ---------- */
 
   function intro() {
-    bannerText.textContent = TUT[0];
+    bannerText.textContent = 'Sort the glasses into correct trays.';
+    gsap.set('#banner', { autoAlpha: 0 }); /* Agni handles the concept lines first */
     var tl = gsap.timeline();
     tl.from('#trays', { y: 220, autoAlpha: 0, duration: 0.7, ease: 'power3.out' }, 0.2)
       .from([plaqueEls.empty, plaqueEls.half, plaqueEls.full],
         { y: -40, autoAlpha: 0, scale: 0.6, duration: 0.55, ease: 'back.out(2)', stagger: 0.12 }, 0.55)
       .from(state.glasses.map(function (g) { return g.el; }),
         { scale: 0, duration: 0.5, ease: 'back.out(2.2)', stagger: 0.06 }, 0.8)
-      .add(function () { state.glasses.forEach(startIdle); })
-      .from('#banner', { y: -230, autoAlpha: 0, duration: 0.6, ease: 'power3.out' }, 0.15);
+      .add(function () { state.glasses.forEach(startIdle); });
 
-    /* Agni talks the player through it (skipped early if they just dive in) */
-    tutLater(0.9, function () { agniSays(TUT[0]); });
-    tutLater(3.5, function () { agniSays(TUT[1]); });
-    tutLater(6.0, function () {
-      agniSays(TUT[2]);
+    /* Agni walks in and speaks every line, then steps aside for the hands-on
+       step (all skipped if the player just dives in and drops a glass) */
+    tutLater(0.9, function () { showTutMascot(TUT[0]); });
+    tutLater(4.8, function () { showTutMascot(TUT[1]); });
+    tutLater(8.2, function () {
+      showTutMascot(TUT[2]);
+      highlightFullGlass(); /* spotlight the full glass while Agni names it */
+    });
+    tutLater(12.0, function () {
+      bannerText.textContent = 'Sort the glasses into correct trays.';
+      hideTutMascot(true);
       startSortHint();
     });
   }
