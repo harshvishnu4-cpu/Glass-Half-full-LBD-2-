@@ -83,13 +83,11 @@ function expect(label, actual, wanted) {
   expect('placed after sorting all', await placed(), 9);
   await page.screenshot({ path: path.join(SHOTS, '2b-sorted.png') });
 
-  // 3. phase 2: customers walk in and demand drinks
+  // 3. phase 2: dress the drinks FIRST, then customers arrive to order
   await page.waitForFunction(() => window.__game.phase === 2, { timeout: 15000 });
-  await page.waitForFunction(() => window.__game.demand !== null, { timeout: 25000 });
-  console.log('order sequence:', await page.evaluate(
-    () => [window.__game.demand].concat(window.__game.demandQueue).join(', ')));
-  await sleep(700); // bubble pop-in
-  await page.screenshot({ path: path.join(SHOTS, '3-customers.png') });
+  // the garnish boxes glow once the trays are ready to be dressed
+  await page.waitForFunction(
+    () => document.getElementById('lemonbox').classList.contains('nudge-glow'), { timeout: 15000 });
 
   // garnish: one tap on each box dresses every glass on the trays
   await page.click('#strawbox');
@@ -105,6 +103,13 @@ function expect(label, actual, wanted) {
     return gs.length === 6 && gs.every((g) => g.hasLemon && /garnish-\w+-both/.test(g.img.src));
   }), true);
   await page.screenshot({ path: path.join(SHOTS, '3b-garnished.png') });
+
+  // only now (after Agni's cheer) does the first customer walk in and demand
+  await page.waitForFunction(() => window.__game.demand !== null, { timeout: 25000 });
+  console.log('order sequence:', await page.evaluate(
+    () => [window.__game.demand].concat(window.__game.demandQueue).join(', ')));
+  await sleep(700); // bubble pop-in
+  await page.screenshot({ path: path.join(SHOTS, '3-customers.png') });
 
   const served = () => page.evaluate(() => window.__game.served);
   const glassIdxOf = (t) => page.evaluate(

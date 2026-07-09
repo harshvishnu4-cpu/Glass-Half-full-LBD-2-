@@ -76,7 +76,7 @@
   var TUT = [
     'Making every drink one by one takes too much time.',
     'Let\'s keep similar drinks together!',
-    'This glass is full. Put it in the correct tray.',
+    'This glass is empty. Put it in the correct tray.',
     'Great! Now let\'s serve our customers.',
     'First, tap the lemon and straw to dress every drink!',
     'Now drag the correct drink to the customer.',
@@ -329,6 +329,13 @@
   /* reveal the line one character at a time, with a soft blip per letter */
   function typewrite(text, startDelay) {
     if (typeCall) { typeCall.kill(); typeCall = null; }
+    /* size the bubble to the finished line up front, so it neither grows as
+       the text types nor leaves a big empty box for short lines */
+    tutMascotBubble.style.minWidth = '0px';
+    tutMascotBubble.style.minHeight = '0px';
+    tutMascotText.textContent = text;
+    tutMascotBubble.style.minWidth = tutMascotBubble.offsetWidth + 'px';
+    tutMascotBubble.style.minHeight = tutMascotBubble.offsetHeight + 'px';
     tutMascotText.textContent = '';
     var i = 0;
     function step() {
@@ -433,25 +440,27 @@
     if (ghostGlassEl) { ghostGlassEl.remove(); ghostGlassEl = null; }
   }
 
-  /* spotlight one full glass — fired the moment Agni says "This glass is full",
-     so kids connect the words to the glowing, pulsing glass */
-  function highlightFullGlass() {
+  /* spotlight one empty glass AND its matching (empty) tray — fired the moment
+     Agni says "This glass is empty", so kids connect the word, the glowing
+     glass, and the tray it belongs in all at once */
+  function highlightEmptyGlass() {
     state.hintGlass = null;
     for (var i = 0; i < state.glasses.length; i++) {
-      if (state.glasses[i].type === 'full' && !state.glasses[i].placed) { state.hintGlass = state.glasses[i]; break; }
+      if (state.glasses[i].type === 'empty' && !state.glasses[i].placed) { state.hintGlass = state.glasses[i]; break; }
     }
     var g = state.hintGlass;
     if (!g) return;
     g.el.classList.add('highlight');
     gsap.to(g.img, { scale: 1.16, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    clearZoneHints();
+    hintZone('empty'); /* the empty tray glows together with the glass */
   }
 
-  /* add the glowing tray + ghost drag demo for the hands-on step */
+  /* add the ghost drag demo for the hands-on step (glass + tray already glow) */
   function startSortHint() {
-    if (!state.hintGlass || state.hintGlass.placed) highlightFullGlass();
+    if (!state.hintGlass || state.hintGlass.placed) highlightEmptyGlass();
     var g = state.hintGlass;
     if (!g) return;
-    hintZone('full');
     startHandDemo(g);
   }
 
@@ -558,12 +567,13 @@
       /* one shuffled deck of all six orders — well mixed, never runs dry */
       state.demandQueue = shuffle(['half', 'half', 'half', 'full', 'full', 'full']);
     }, function () {
-      bannerText.textContent = 'Give each customer what they ask for!';
+      /* level 2 opens by asking the player to dress the drinks; no customer
+         arrives until both the lemon and straw have been added */
+      bannerText.textContent = 'Tap the lemon and straw to dress the drinks!';
       showTutMascot(TUT[4]); /* Agni: "First, tap the lemon and straw..." */
       startGarnishNudge();   /* the garnish boxes glow & bob until tapped */
-      gsap.delayedCall(3.4, function () { showTutMascot(TUT[5]); }); /* "...drag the correct drink" */
-      gsap.delayedCall(6.6, function () { hideTutMascot(true); });
-      gsap.delayedCall(6.9, function () { state.locked = false; startRound(); });
+      gsap.delayedCall(4.0, function () { hideTutMascot(true); });
+      state.locked = false;  /* let the player tap the garnish boxes */
     });
   }
 
@@ -825,12 +835,23 @@
     });
     SFX.play(added ? 'garnish' : 'click');
 
-    /* once both garnishes are on, clear the boxes away and slide the two
-       serving trays into the middle of the counter */
+    /* once both garnishes are on, clear the boxes away, centre the trays,
+       let Agni cheer, and only THEN send in the first customer */
     if (kind === 'straw') state.strawTapped = true; else state.lemonTapped = true;
     if (state.strawTapped && state.lemonTapped && !state.traysCentered) {
       state.traysCentered = true;
+      state.locked = true; /* hold serving until the cheer + walk-in finish */
       gsap.delayedCall(0.35, centerServingTrays);
+      gsap.delayedCall(1.1, function () {
+        bannerText.textContent = 'Give each customer what they ask for!';
+        showTutMascot(TUT[6]); /* "Awesome! You're ready to serve everyone!" */
+      });
+      gsap.delayedCall(4.8, function () { hideTutMascot(true); });
+      gsap.delayedCall(5.2, function () {
+        state.firstServeDone = true; /* the cheer already played */
+        state.locked = false;
+        startRound();
+      });
     }
   }
 
@@ -1033,7 +1054,7 @@
     tutLater(4.8, function () { showTutMascot(TUT[1]); });
     tutLater(8.2, function () {
       showTutMascot(TUT[2]);
-      highlightFullGlass(); /* spotlight the full glass while Agni names it */
+      highlightEmptyGlass(); /* spotlight the empty glass + empty tray as Agni names it */
     });
     tutLater(12.0, function () {
       bannerText.textContent = 'Sort the glasses into correct trays.';

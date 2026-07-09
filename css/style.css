@@ -226,23 +226,23 @@ img { user-select: none; -webkit-user-drag: none; }
   width: 641px; height: 754px;
   filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.45));
 }
-/* bubble box from Figma node 670:1292 (1199,79 · 454x345) */
+/* comic bubble — anchored by its right edge (so the tail stays over the
+   dragon) and sized to fit each line of dialogue (JS locks the size per line) */
 #tut-mascot-bubble {
   position: absolute;
-  left: 1199px; top: 79px;
-  width: 454px;
-  min-height: 345px;
+  right: 132px; top: 79px;
+  width: auto;
+  max-width: 454px;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
   background: #fff4dc;
   border: 6px solid #f7941e;
   border-radius: 34px;
-  padding: 30px 40px;
+  padding: 26px 40px;
   font-size: 46px;
-  line-height: 1.18;
+  line-height: 1.2;
   font-weight: normal;
   color: #f7941e;
+  text-align: center;
   text-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
 }
 #tut-mascot-bubble::after {
