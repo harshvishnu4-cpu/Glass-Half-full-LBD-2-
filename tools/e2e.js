@@ -70,11 +70,12 @@ function expect(label, actual, wanted) {
   await dragTo(0, '#zone-full', { shotDuringDrag: '1-dragging.png' });
   await sleep(400); // return-home tween
   expect('placed after wrong drop', await placed(), 0);
-  // a second miss in a row must trigger the glowing-tray hint
+  // a second miss in a row must trigger the glowing-tray hint (spoken by Agni)
   await dragTo(0, '#zone-full');
-  await sleep(400);
-  expect('hint after two wrong attempts', await page.evaluate(
-    () => document.getElementById('banner-text').textContent.includes('glowing tray')), true);
+  await page.waitForFunction(
+    () => document.getElementById('tut-mascot-text').textContent.includes('glowing tray'),
+    { timeout: 8000 });
+  expect('hint after two wrong attempts', true, true);
   await page.screenshot({ path: path.join(SHOTS, '2-after-reject.png') });
 
   // 2. sort everything correctly

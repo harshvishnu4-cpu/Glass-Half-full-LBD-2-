@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>The Glass Half Full</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥤</text></svg>">
   <link rel="stylesheet" href="css/style.css">
@@ -46,17 +46,9 @@
 
       <img id="demand-bubble" src="assets/img/bubble-half.svg" alt="Customer order">
       <div id="serve-bubble">Yummy!</div>
-      <div id="phase-banner">Great Sorting!</div>
 
-      <!-- mascot instruction banner -->
-      <div id="banner">
-        <img id="banner-strip" src="assets/img/banner.webp" alt="">
-        <span id="banner-text">Sort the glasses into correct trays.</span>
-        <img id="mascot-box" src="assets/img/mascotbox.webp" alt="">
-        <img id="mascot" src="assets/img/dragon.webp" alt="Dragon mascot">
-      </div>
-
-      <!-- tutorial mascot: full-body Agni + comic speech bubble (tutorial only) -->
+      <!-- Agni the dragon speaks all guidance through this speech bubble -->
+      <!-- tutorial mascot: full-body Agni + comic speech bubble -->
       <div id="tut-mascot">
         <div id="tut-mascot-bubble"><span id="tut-mascot-text"></span></div>
         <img id="tut-mascot-img" src="assets/img/agni-full.webp" alt="Agni the dragon">
@@ -102,6 +94,14 @@
           </svg>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- shown on portrait phones: the game is designed for landscape -->
+  <div id="rotate-overlay">
+    <div id="rotate-inner">
+      <div id="rotate-icon">📱</div>
+      <p>Please rotate your device<br>to play!</p>
     </div>
   </div>
 

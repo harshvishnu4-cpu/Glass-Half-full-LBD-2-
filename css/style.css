@@ -15,7 +15,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-#viewport { position: fixed; inset: 0; overflow: hidden; }
+#viewport { position: fixed; inset: 0; overflow: hidden; touch-action: none; }
 
 /* Fixed 1920x1080 stage, scaled to fit the window from JS */
 #stage {
@@ -152,31 +152,28 @@ img { user-select: none; -webkit-user-drag: none; }
   to   { filter: drop-shadow(0 0 26px rgba(255, 215, 94, 1)); }
 }
 
-/* customer thank-you bubble that pops above the served customer's head */
+/* customer thank-you bubble — same speech-box artwork as Agni's, sized to keep
+   the art's aspect ratio (so it never looks squashed) and popped above the head */
 #serve-bubble {
   position: absolute;
   z-index: 9;
-  top: 205px;
-  padding: 14px 36px;
-  background: #fff4dc;
-  border: 6px solid #f7941e;
-  border-radius: 44px;
-  font-size: 54px;
+  top: 96px;
+  width: 320px;
+  height: 242px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: url('../assets/img/tut-bubble.webp') center top / 100% 100% no-repeat;
+  padding: 24px 30px 50px;
+  font-size: 42px;
+  line-height: 1.12;
   color: #f7941e;
-  white-space: nowrap;
+  text-align: center;
   text-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-}
-#serve-bubble::after {
-  content: '';
-  position: absolute;
-  left: 50%; bottom: -34px;
-  transform: translateX(-50%);
-  border: 20px solid transparent;
-  border-top: 36px solid #f7941e;
-  border-bottom: 0;
 }
 
 #phase-banner {
@@ -193,30 +190,7 @@ img { user-select: none; -webkit-user-drag: none; }
   pointer-events: none;
 }
 
-/* mascot instruction banner (from Figma slide 3) */
-#banner { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
-#banner-strip {
-  position: absolute;
-  left: 97px; top: 49px;
-  width: 1757px; height: 117px;
-  object-fit: cover;
-  object-position: bottom;
-}
-#mascot-box { position: absolute; left: 26px; top: 20px; width: 169px; height: 169px; }
-#mascot     { position: absolute; left: 43px; top: 46px; width: 134px; height: 118px; }
-#banner-text {
-  position: absolute;
-  left: 225px; top: 49px;
-  height: 117px;
-  display: flex;
-  align-items: center;
-  font-size: 46px;
-  color: #fff;
-  text-shadow: 0 3px 0 #844a08;
-  white-space: nowrap;
-}
-
-/* tutorial mascot — full-body Agni stands bottom-right and speaks (tutorial only) */
+/* Agni the dragon stands bottom-right and speaks all guidance */
 #tut-mascot { position: absolute; inset: 0; z-index: 9; pointer-events: none; visibility: hidden; }
 /* full-body Agni, scaled down ~22% from the Figma box (was 1295,344 · 822x967)
    and re-anchored so his head stays near the speech bubble */
@@ -226,42 +200,27 @@ img { user-select: none; -webkit-user-drag: none; }
   width: 641px; height: 754px;
   filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.45));
 }
-/* comic bubble — anchored by its right edge (so the tail stays over the
-   dragon) and sized to fit each line of dialogue (JS locks the size per line) */
+/* comic bubble — uses the supplied speech-box artwork; its tail (~54% from the
+   left) is anchored over the dragon. Fixed width so the tail stays put; height
+   grows with the text (JS locks it per line). Padding keeps the text inside the
+   cream body, clear of the border and the downward tail. */
 #tut-mascot-bubble {
   position: absolute;
-  right: 132px; top: 79px;
-  width: auto;
-  max-width: 454px;
+  right: 40px; top: 74px;
+  width: 420px;
+  height: 322px;
   box-sizing: border-box;
-  background: #fff4dc;
-  border: 6px solid #f7941e;
-  border-radius: 34px;
-  padding: 26px 40px;
-  font-size: 46px;
-  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: url('../assets/img/tut-bubble.webp') center top / 100% 100% no-repeat;
+  padding: 30px 40px 62px;
+  font-size: 44px;
+  line-height: 1.18;
   font-weight: normal;
   color: #f7941e;
   text-align: center;
   text-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
-}
-#tut-mascot-bubble::after {
-  /* tail pointing down toward the dragon */
-  content: '';
-  position: absolute;
-  right: 46px; bottom: -40px;
-  border: 22px solid transparent;
-  border-top: 42px solid #f7941e;
-  border-bottom: 0;
-}
-#tut-mascot-bubble::before {
-  content: '';
-  position: absolute;
-  right: 52px; bottom: -26px;
-  border: 15px solid transparent;
-  border-top: 30px solid #fff4dc;
-  border-bottom: 0;
-  z-index: 1;
 }
 
 /* tutorial: a translucent ghost of the glass drags itself to the tray */

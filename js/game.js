@@ -52,10 +52,8 @@
   var stage = document.getElementById('stage');
   var glassLayer = document.getElementById('glass-layer');
   var fxLayer = document.getElementById('fx-layer');
-  var bannerText = document.getElementById('banner-text');
   var winOverlay = document.getElementById('win-overlay');
   var demandBubble = document.getElementById('demand-bubble');
-  var banner = document.getElementById('phase-banner');
   var zoneCustomer = document.getElementById('zone-customer');
   PHASE2.chars.forEach(function (c) { c.el = document.getElementById('char-' + c.key); });
   var zoneEls = {
@@ -83,8 +81,8 @@
     'Awesome! You\'re ready to serve everyone!'
   ];
 
-  /* happy things the customers say the moment they get their drink */
-  var SERVE_LINES = ['Yummy!', 'Thank you!', 'Delicious!', 'So good!', 'Mmm, tasty!', 'Perfect!'];
+  /* spooky-but-sweet things the customers say when they get their drink */
+  var SERVE_LINES = ['Boo-licious!', 'Fang-tastic!', 'Spook-tacular!', 'Ghoulishly good!', 'Monster yummy!', 'Eek, tasty!'];
 
   var state = {
     glasses: [], placed: 0, topZ: 500, locked: false,
@@ -258,16 +256,11 @@
     state.placed += 1;
 
     /* first correct drop ends the sorting tutorial */
-    var hadHint = state.wrongStreak >= 2;
     if (!state.firstSortDone) {
       state.firstSortDone = true;
       clearTutTimers();
       stopSortHint();
-      hideTutMascot(true); /* dismiss Agni if the player dropped mid-intro */
-      agniSays('Sort the glasses into correct trays.');
-    } else if (hadHint) {
-      bannerText.textContent = 'Sort the glasses into correct trays.';
-      gsap.fromTo(bannerText, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 });
+      hideTutMascot(); /* dismiss Agni once the player sorts correctly */
     }
     state.wrongStreak = 0;
     clearZoneHints();
@@ -303,15 +296,14 @@
 
   /* ---------- Agni's tutorial ---------- */
 
+  /* a quick hint spoken by Agni through his speech bubble, then dismissed;
+     cancels any pending tutorial line so it can't overwrite the hint */
+  var hintTimer = null;
   function agniSays(text) {
-    bannerText.textContent = text;
-    gsap.fromTo(bannerText, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.35 });
-    gsap.set('#mascot', { transformOrigin: '50% 90%' });
-    gsap.fromTo('#mascot', { rotation: -4 }, {
-      rotation: 4, duration: 0.12, yoyo: true, repeat: 5, ease: 'sine.inOut',
-      onComplete: function () { gsap.set('#mascot', { rotation: 0 }); }
-    });
-    SFX.play('ask');
+    if (hintTimer) hintTimer.kill();
+    clearTutTimers();
+    showTutMascot(text);
+    hintTimer = gsap.delayedCall(3.6, function () { hideTutMascot(); });
   }
 
   function tutLater(delay, fn) {
@@ -329,13 +321,6 @@
   /* reveal the line one character at a time, with a soft blip per letter */
   function typewrite(text, startDelay) {
     if (typeCall) { typeCall.kill(); typeCall = null; }
-    /* size the bubble to the finished line up front, so it neither grows as
-       the text types nor leaves a big empty box for short lines */
-    tutMascotBubble.style.minWidth = '0px';
-    tutMascotBubble.style.minHeight = '0px';
-    tutMascotText.textContent = text;
-    tutMascotBubble.style.minWidth = tutMascotBubble.offsetWidth + 'px';
-    tutMascotBubble.style.minHeight = tutMascotBubble.offsetHeight + 'px';
     tutMascotText.textContent = '';
     var i = 0;
     function step() {
@@ -353,19 +338,18 @@
     if (!tutMascotIn) {
       tutMascotIn = true;
       SFX.play('ask');
-      /* the top banner steps aside; Agni strolls in from the right */
-      gsap.to('#banner', { autoAlpha: 0, y: -60, duration: 0.35, ease: 'power2.in' });
+      /* Agni strolls in from the right and speaks */
       gsap.set(tutMascot, { visibility: 'visible' });
       gsap.fromTo(tutMascotImg, { x: 380, autoAlpha: 0 },
         { x: 0, autoAlpha: 1, duration: 0.6, ease: 'power3.out' });
       gsap.fromTo(tutMascotBubble, { autoAlpha: 0, scale: 0.3 },
-        { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'back.out(2)', delay: 0.35, transformOrigin: '80% 100%' });
+        { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'back.out(2)', delay: 0.35, transformOrigin: '54% 100%' });
       typewrite(text, 0.7); /* start typing once the bubble has popped in */
     } else {
       /* already on screen — pop the bubble and retype the new line */
       SFX.play('ask');
       gsap.fromTo(tutMascotBubble, { scale: 0.9 },
-        { scale: 1, duration: 0.3, ease: 'back.out(2.4)', transformOrigin: '80% 100%' });
+        { scale: 1, duration: 0.3, ease: 'back.out(2.4)', transformOrigin: '54% 100%' });
       typewrite(text, 0.2);
     }
     /* friendly gesture wiggle */
@@ -374,16 +358,13 @@
         onComplete: function () { gsap.set(tutMascotImg, { rotation: 0 }); } });
   }
 
-  function hideTutMascot(restoreBanner) {
+  function hideTutMascot() {
     if (typeCall) { typeCall.kill(); typeCall = null; }
-    if (!tutMascotIn) { if (restoreBanner) gsap.set('#banner', { autoAlpha: 1, y: 0 }); return; }
+    if (!tutMascotIn) return;
     tutMascotIn = false;
     gsap.to(tutMascotBubble, { autoAlpha: 0, scale: 0.4, duration: 0.25, ease: 'back.in(1.6)' });
     gsap.to(tutMascotImg, { x: 420, autoAlpha: 0, duration: 0.5, ease: 'power2.in',
       onComplete: function () { gsap.set(tutMascot, { visibility: 'hidden' }); } });
-    if (restoreBanner) {
-      gsap.to('#banner', { autoAlpha: 1, y: 0, duration: 0.45, ease: 'power3.out', delay: 0.15 });
-    }
   }
 
   function clearTutTimers() {
@@ -546,7 +527,7 @@
     SFX.play('win');
     confettiBurst(50);
     showTutMascot(TUT[3]); /* Agni: "Great! Now let's serve our customers." */
-    gsap.delayedCall(3.2, function () { hideTutMascot(false); });
+    gsap.delayedCall(3.2, function () { hideTutMascot(); });
     gsap.delayedCall(3.6, transitionToPhase2);
   }
 
@@ -569,10 +550,9 @@
     }, function () {
       /* level 2 opens by asking the player to dress the drinks; no customer
          arrives until both the lemon and straw have been added */
-      bannerText.textContent = 'Tap the lemon and straw to dress the drinks!';
       showTutMascot(TUT[4]); /* Agni: "First, tap the lemon and straw..." */
       startGarnishNudge();   /* the garnish boxes glow & bob until tapped */
-      gsap.delayedCall(4.0, function () { hideTutMascot(true); });
+      gsap.delayedCall(5.5, function () { hideTutMascot(); });
       state.locked = false;  /* let the player tap the garnish boxes */
     });
   }
@@ -616,9 +596,6 @@
     state.demand = null; /* no orders while the customer is still walking */
     state.wrongStreak = 0;
     clearServeHint();
-    if (bannerText.textContent === 'Pick a glowing glass from the tray!') {
-      bannerText.textContent = 'Give each customer what they ask for!';
-    }
     var pool = PHASE2.chars.filter(function (c) { return c !== state.lastChar; });
     var c = pool[Math.floor(Math.random() * pool.length)];
     state.lastChar = c;
@@ -683,10 +660,7 @@
       gsap.delayedCall(0.8, function () {
         showTutMascot(TUT[6]); /* Agni: "Awesome! You're ready to serve everyone!" */
       });
-      gsap.delayedCall(4.2, function () {
-        bannerText.textContent = 'Give each customer what they ask for!';
-        hideTutMascot(true);
-      });
+      gsap.delayedCall(4.2, function () { hideTutMascot(); });
     }
 
     var c = state.active;
@@ -717,7 +691,7 @@
   function showServeFeedback(c) {
     serveBubble.textContent = SERVE_LINES[Math.floor(Math.random() * SERVE_LINES.length)];
     gsap.killTweensOf(serveBubble);
-    gsap.set(serveBubble, { visibility: 'visible', left: SERVE_X + 'px', xPercent: -50 });
+    gsap.set(serveBubble, { visibility: 'visible', left: SERVE_X + 'px', xPercent: -50, transformOrigin: '54% 100%' });
     gsap.fromTo(serveBubble, { autoAlpha: 0, scale: 0.3, y: 22 },
       { autoAlpha: 1, scale: 1, y: 0, duration: 0.4, ease: 'back.out(2.4)' });
     SFX.play('happy');
@@ -843,10 +817,9 @@
       state.locked = true; /* hold serving until the cheer + walk-in finish */
       gsap.delayedCall(0.35, centerServingTrays);
       gsap.delayedCall(1.1, function () {
-        bannerText.textContent = 'Give each customer what they ask for!';
         showTutMascot(TUT[6]); /* "Awesome! You're ready to serve everyone!" */
       });
-      gsap.delayedCall(4.8, function () { hideTutMascot(true); });
+      gsap.delayedCall(4.8, function () { hideTutMascot(); });
       gsap.delayedCall(5.2, function () {
         state.firstServeDone = true; /* the cheer already played */
         state.locked = false;
@@ -1038,8 +1011,6 @@
   /* ---------- intro ---------- */
 
   function intro() {
-    bannerText.textContent = 'Sort the glasses into correct trays.';
-    gsap.set('#banner', { autoAlpha: 0 }); /* Agni handles the concept lines first */
     var tl = gsap.timeline();
     tl.from('#trays', { y: 220, autoAlpha: 0, duration: 0.7, ease: 'power3.out' }, 0.2)
       .from([plaqueEls.empty, plaqueEls.half, plaqueEls.full],
@@ -1057,8 +1028,7 @@
       highlightEmptyGlass(); /* spotlight the empty glass + empty tray as Agni names it */
     });
     tutLater(12.0, function () {
-      bannerText.textContent = 'Sort the glasses into correct trays.';
-      hideTutMascot(true);
+      hideTutMascot();
       startSortHint();
     });
   }
