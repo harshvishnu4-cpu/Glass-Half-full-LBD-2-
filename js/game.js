@@ -982,6 +982,11 @@
   function showWin() {
     SFX.play('win');
     confettiBurst(90);
+    /* start the celebration video from the top (muted autoplay is allowed) */
+    var winVideo = document.getElementById('win-bg');
+    if (winVideo && winVideo.play) {
+      try { winVideo.currentTime = 0; var pr = winVideo.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { /* poster stays as fallback */ }
+    }
     gsap.set(winOverlay, { visibility: 'visible' });
     gsap.to(winOverlay, { opacity: 1, duration: 0.4 });
     gsap.fromTo('#win-bg', { scale: 1.06 }, { scale: 1, duration: 0.6, ease: 'power2.out' });
