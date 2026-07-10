@@ -35,8 +35,16 @@ img { user-select: none; -webkit-user-drag: none; }
    against the wooden counter exactly like the Figma composite */
 #trays  { left: 42px; top: 710px; width: 1834px; height: 344px; z-index: 4; mix-blend-mode: multiply; }
 
-/* customers stand behind the counter: above the sky, below the wood */
-#customer-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+/* customers stand behind the counter: above the sky, below the wood.
+   clip to the stall opening so they slide in from BEHIND the wooden side
+   posts (which are baked into the background) instead of over them */
+#customer-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  clip-path: inset(0 56px 0 64px);
+}
 .customer {
   position: absolute;
   transform-origin: 50% 100%;
@@ -314,4 +322,35 @@ img { user-select: none; -webkit-user-drag: none; }
   background: #F77ADE;
   pointer-events: none;
   will-change: transform;
+}
+
+/* ---------- rotate-to-landscape prompt (portrait phones) ---------- */
+#rotate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: none;            /* toggled from JS by orientation */
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 24px;
+  background: radial-gradient(circle at 50% 40%, #241016 0%, #14080a 80%);
+  color: #fff4dc;
+  text-align: center;
+  font-family: 'Lilita One', system-ui, sans-serif;
+}
+#rotate-icon {
+  font-size: 84px;
+  line-height: 1;
+  animation: rotateHint 1.8s ease-in-out infinite;
+}
+#rotate-overlay p {
+  margin-top: 24px;
+  font-size: 34px;
+  line-height: 1.35;
+  color: #ffd75e;
+  text-shadow: 0 3px 0 #972129;
+}
+@keyframes rotateHint {
+  0%, 40%  { transform: rotate(0deg); }
+  70%, 100% { transform: rotate(90deg); }
 }

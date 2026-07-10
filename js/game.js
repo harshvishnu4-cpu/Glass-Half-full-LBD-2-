@@ -103,15 +103,33 @@
 
   /* ---------- stage scaling ---------- */
 
+  /* the whole 1920x1080 stage is scaled to *contain* the viewport (letterboxed
+     and centred), so the layout stays pixel-perfect on any screen size. We read
+     the visual viewport when available so mobile browser chrome (the address
+     bar) is accounted for, and flip to a rotate prompt on portrait phones. */
+  var rotateOverlay = document.getElementById('rotate-overlay');
   function fitStage() {
-    stageScale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    var vv = window.visualViewport;
+    var vw = vv ? vv.width : window.innerWidth;
+    var vh = vv ? vv.height : window.innerHeight;
+    stageScale = Math.min(vw / 1920, vh / 1080);
     gsap.set(stage, {
       scale: stageScale,
-      x: (window.innerWidth - 1920 * stageScale) / 2,
-      y: (window.innerHeight - 1080 * stageScale) / 2
+      x: (vw - 1920 * stageScale) / 2,
+      y: (vh - 1080 * stageScale) / 2
     });
+    if (rotateOverlay) rotateOverlay.style.display = vh > vw ? 'flex' : 'none';
   }
   window.addEventListener('resize', fitStage);
+  /* mobile reports the new size a beat after the orientation flips */
+  window.addEventListener('orientationchange', function () {
+    fitStage();
+    setTimeout(fitStage, 250);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', fitStage);
+    window.visualViewport.addEventListener('scroll', fitStage);
+  }
 
   /* ---------- glasses ---------- */
 
@@ -255,12 +273,11 @@
     g.el.classList.add('placed');
     state.placed += 1;
 
-    /* first correct drop ends the sorting tutorial */
+    /* first correct drop ends the sorting tutorial — Agni cheers the player on */
     if (!state.firstSortDone) {
       state.firstSortDone = true;
-      clearTutTimers();
       stopSortHint();
-      hideTutMascot(); /* dismiss Agni once the player sorts correctly */
+      agniSays('Now it\'s your turn!'); /* clears the tutorial timers, then auto-hides */
     }
     state.wrongStreak = 0;
     clearZoneHints();
