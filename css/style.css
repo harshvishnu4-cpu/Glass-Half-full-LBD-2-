@@ -261,22 +261,6 @@ img { user-select: none; -webkit-user-drag: none; }
   visibility: hidden;
 }
 #win-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-#replay {
-  position: absolute;
-  left: 50%; bottom: 18px;
-  transform: translateX(-50%);
-  font-family: inherit;
-  font-size: 46px;
-  color: #972129;
-  width: 314px; height: 86px;
-  background: url('../assets/img/plaque.webp') center / 100% 100% no-repeat;
-  border: none;
-  cursor: pointer;
-  padding-bottom: 8px;
-  transition: transform 0.15s ease;
-}
-#replay:hover { transform: translateX(-50%) scale(1.06); }
-#replay:active { transform: translateX(-50%) scale(0.97); }
 
 /* ---------- title screen ---------- */
 #title-screen { position: absolute; inset: 0; z-index: 12; }

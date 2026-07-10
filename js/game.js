@@ -979,26 +979,35 @@
 
   /* ---------- win / replay ---------- */
 
+  /* splash over the win screen, then a clean reload back to the title screen */
+  var returning = false;
+  function returnToTitle() {
+    if (returning) return;
+    returning = true;
+    splashTransition(function () { location.reload(); }, null);
+  }
+
   function showWin() {
     SFX.play('win');
     confettiBurst(90);
-    /* start the celebration video from the top (muted autoplay is allowed) */
-    var winVideo = document.getElementById('win-bg');
-    if (winVideo && winVideo.play) {
-      try { winVideo.currentTime = 0; var pr = winVideo.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { /* poster stays as fallback */ }
-    }
     gsap.set(winOverlay, { visibility: 'visible' });
     gsap.to(winOverlay, { opacity: 1, duration: 0.4 });
     gsap.fromTo('#win-bg', { scale: 1.06 }, { scale: 1, duration: 0.6, ease: 'power2.out' });
-    gsap.fromTo('#replay', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, delay: 0.6 });
     gsap.delayedCall(1.4, function () { confettiBurst(60); });
-  }
 
-  document.getElementById('replay').addEventListener('click', function () {
-    SFX.play('click');
-    /* splash over the win screen, then a clean reload back to the title */
-    splashTransition(function () { location.reload(); }, null);
-  });
+    /* play the celebration once; when it ends, head back to the title screen */
+    var winVideo = document.getElementById('win-bg');
+    if (winVideo) {
+      winVideo.addEventListener('ended', returnToTitle, { once: true });
+      if (winVideo.play) {
+        try { winVideo.currentTime = 0; var pr = winVideo.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { /* poster stays as fallback */ }
+      }
+      /* safety net if the video can't autoplay or 'ended' never fires */
+      gsap.delayedCall(7.5, returnToTitle);
+    } else {
+      gsap.delayedCall(3.5, returnToTitle);
+    }
+  }
 
   /* ---------- title screen ---------- */
 

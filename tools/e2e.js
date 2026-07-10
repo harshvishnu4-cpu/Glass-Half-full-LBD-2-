@@ -144,11 +144,13 @@ function expect(label, actual, wanted) {
     return s.visibility === 'visible' && parseFloat(s.opacity) > 0.9;
   }), true);
 
-  // 4. replay reloads back to the sorting phase
-  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('#replay')]);
+  // 4. when the celebration video ends, the game auto-returns to the title screen
+  await page.waitForNavigation({ waitUntil: 'load', timeout: 20000 });
   await sleep(1500);
-  expect('placed after replay', await placed(), 0);
-  expect('glasses after replay', await page.evaluate(() => document.querySelectorAll('.glass').length), 9);
+  expect('title screen visible after win', await page.evaluate(
+    () => getComputedStyle(document.getElementById('title-screen')).display !== 'none'), true);
+  expect('placed reset after return', await placed(), 0);
+  expect('glasses rebuilt after return', await page.evaluate(() => document.querySelectorAll('.glass').length), 9);
   await page.screenshot({ path: path.join(SHOTS, '5-replay.png') });
 
   console.log('page errors:', errors.length ? errors.join(' | ') : 'none');
