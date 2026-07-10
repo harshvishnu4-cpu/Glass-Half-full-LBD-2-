@@ -275,6 +275,8 @@ img { user-select: none; -webkit-user-drag: none; }
   cursor: pointer;
   padding: 0;
 }
+/* wider pill when it's the "Play Again" button (shown after a win) */
+#play-btn.again { width: 360px; margin-left: -180px; }
 #play-btn img {
   width: 100%;
   display: block;

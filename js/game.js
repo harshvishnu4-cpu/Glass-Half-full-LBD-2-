@@ -979,12 +979,13 @@
 
   /* ---------- win / replay ---------- */
 
-  /* splash over the win screen, then a clean reload back to the title screen */
+  /* splash over the win screen, then reload to the title screen. the "?again"
+     flag survives the reload so the title shows the "Play Again" button */
   var returning = false;
   function returnToTitle() {
     if (returning) return;
     returning = true;
-    splashTransition(function () { location.reload(); }, null);
+    splashTransition(function () { location.search = '?again'; }, null);
   }
 
   function showWin() {
@@ -1016,6 +1017,13 @@
   var gameStarted = false;
 
   function showTitle() {
+    /* returning from a win ("?again"): show the "Play Again" button instead */
+    if (/[?&]again\b/.test(location.search)) {
+      playBtn.classList.add('again');
+      var pImg = playBtn.querySelector('img');
+      pImg.src = 'assets/img/play-again.svg';
+      pImg.alt = 'Play Again';
+    }
     /* the title pops once and stays still — only the play button pulses */
     gsap.from(playBtn, { scale: 0, autoAlpha: 0, duration: 0.6, ease: 'back.out(2.2)', delay: 0.55 });
     gsap.to(playBtn, { scale: 1.07, duration: 0.8, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 1.2 });
