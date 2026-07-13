@@ -160,21 +160,21 @@ img { user-select: none; -webkit-user-drag: none; }
   to   { filter: drop-shadow(0 0 26px rgba(255, 215, 94, 1)); }
 }
 
-/* customer thank-you bubble — same speech-box artwork as Agni's, sized to keep
-   the art's aspect ratio (so it never looks squashed) and popped above the head */
+/* customer thank-you bubble — the side-character speech box: it sits up-left
+   of the customer with its tail (bottom-right corner) pointing at their head */
 #serve-bubble {
   position: absolute;
   z-index: 9;
-  top: 96px;
-  width: 320px;
-  height: 242px;
+  top: 128px;
+  width: 240px;
+  height: 200px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: url('../assets/img/tut-bubble.webp') center top / 100% 100% no-repeat;
-  padding: 24px 30px 50px;
-  font-size: 42px;
+  background: url('../assets/img/side-bubble.webp') center / 100% 100% no-repeat;
+  padding: 18px 26px 46px;
+  font-size: 34px;
   line-height: 1.12;
   color: #f7941e;
   text-align: center;
@@ -214,16 +214,16 @@ img { user-select: none; -webkit-user-drag: none; }
    cream body, clear of the border and the downward tail. */
 #tut-mascot-bubble {
   position: absolute;
-  right: 40px; top: 74px;
-  width: 420px;
-  height: 322px;
+  right: 77px; top: 134px;
+  width: 340px;
+  height: 260px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   background: url('../assets/img/tut-bubble.webp') center top / 100% 100% no-repeat;
-  padding: 30px 40px 62px;
-  font-size: 44px;
+  padding: 24px 32px 50px;
+  font-size: 34px;
   line-height: 1.18;
   font-weight: normal;
   color: #f7941e;

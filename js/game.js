@@ -5,17 +5,21 @@
   'use strict';
 
   var GLASS_TYPES = {
-    full:  { src: 'assets/img/glass-full.webp',  w: 92, h: 136 },
-    half:  { src: 'assets/img/glass-half.webp',  w: 92, h: 137 },
-    empty: { src: 'assets/img/glass-empty.webp', w: 92, h: 137 }
+    full:  { src: 'assets/img/glass-full.webp',  w: 106, h: 157 },
+    half:  { src: 'assets/img/glass-half.webp',  w: 106, h: 158 },
+    empty: { src: 'assets/img/glass-empty.webp', w: 106, h: 158 }
   };
+  /* the garnish art placement below was measured for the original 92px-wide
+     glass box; everything scales by this factor */
+  var GLASS_ART_SCALE = 106 / 92;
 
-  /* Shelf line-up from the Figma frame (node 670:1298): 9 tumblers (3 of each
-     fill level), evenly spaced across the shelf centre (group x 362..1559). */
+  /* Shelf line-up: 9 tumblers (3 of each fill level) in a centred row */
   var START_GLASSES = (function () {
-    var seq = ['half', 'full', 'empty', 'full', 'half', 'full', 'empty', 'half', 'empty'];
+    var seq = ['empty', 'half', 'empty', 'half', 'full', 'empty', 'full', 'half', 'full'];
+    var step = 136;                                  /* 106px glass + 30px gap */
+    var startX = Math.round((1920 - (8 * step + 106)) / 2);
     return seq.map(function (type, i) {
-      return { type: type, x: Math.round(362 + i * ((1559 - 92 - 362) / 8)) };
+      return { type: type, x: startX + i * step };
     });
   })();
   var SHELF_BOTTOM = 621;
@@ -73,12 +77,12 @@
   /* Agni the dragon's tutorial lines */
   var TUT = [
     'Making every drink one by one takes too much time.',
-    'Let\'s keep similar drinks together!',
+    'Let us keep similar drinks together!',
     'This glass is empty. Put it in the correct tray.',
-    'Great! Now let\'s serve our customers.',
+    'Great! Now let us serve our customers.',
     'First, tap the lemon and straw to dress every drink!',
     'Now drag the correct drink to the customer.',
-    'Awesome! You\'re ready to serve everyone!'
+    'Awesome! You are ready to serve everyone!'
   ];
 
   /* spooky-but-sweet things the customers say when they get their drink */
@@ -277,7 +281,7 @@
     if (!state.firstSortDone) {
       state.firstSortDone = true;
       stopSortHint();
-      agniSays('Now it\'s your turn!'); /* clears the tutorial timers, then auto-hides */
+      agniSays('Now it is your turn!'); /* clears the tutorial timers, then auto-hides */
     }
     state.wrongStreak = 0;
     clearZoneHints();
@@ -569,8 +573,10 @@
          arrives until both the lemon and straw have been added */
       showTutMascot(TUT[4]); /* Agni: "First, tap the lemon and straw..." */
       startGarnishNudge();   /* the garnish boxes glow & bob until tapped */
-      gsap.delayedCall(5.5, function () { hideTutMascot(); });
-      state.locked = false;  /* let the player tap the garnish boxes */
+      gsap.delayedCall(5.5, function () {
+        hideTutMascot();
+        state.locked = false; /* dialogue over — the boxes are tappable now */
+      });
     });
   }
 
@@ -708,7 +714,9 @@
   function showServeFeedback(c) {
     serveBubble.textContent = SERVE_LINES[Math.floor(Math.random() * SERVE_LINES.length)];
     gsap.killTweensOf(serveBubble);
-    gsap.set(serveBubble, { visibility: 'visible', left: SERVE_X + 'px', xPercent: -50, transformOrigin: '54% 100%' });
+    /* the box art's tail sits at ~94% of its width (bottom-right corner), so
+       shift the bubble left until the tail points at the customer's head */
+    gsap.set(serveBubble, { visibility: 'visible', left: SERVE_X + 'px', xPercent: -94, transformOrigin: '94% 100%' });
     gsap.fromTo(serveBubble, { autoAlpha: 0, scale: 0.3, y: 22 },
       { autoAlpha: 1, scale: 1, y: 0, duration: 0.4, ease: 'back.out(2.4)' });
     SFX.play('happy');
@@ -784,8 +792,9 @@
     if (!art) return;
     g.img.src = art.src;
     gsap.killTweensOf(g.img);
-    gsap.set(g.img, { position: 'absolute', left: art.left + 'px', top: art.top + 'px',
-      width: art.w + 'px', height: art.h + 'px', transformOrigin: '50% 100%', rotation: 0 });
+    var k = GLASS_ART_SCALE; /* config was measured for the 92px glass box */
+    gsap.set(g.img, { position: 'absolute', left: art.left * k + 'px', top: art.top * k + 'px',
+      width: art.w * k + 'px', height: art.h * k + 'px', transformOrigin: '50% 100%', rotation: 0 });
     gsap.fromTo(g.img, { scale: 0.82 }, { scale: 1, duration: 0.5, ease: 'back.out(2.2)' });
     burstSparks(g.x + g.w / 2, g.y + 6); /* sparkle at the rim */
   }
@@ -1050,6 +1059,7 @@
   /* ---------- intro ---------- */
 
   function intro() {
+    state.locked = true; /* no dragging until Agni finishes the tutorial */
     var tl = gsap.timeline();
     tl.from('#trays', { y: 220, autoAlpha: 0, duration: 0.7, ease: 'power3.out' }, 0.2)
       .from([plaqueEls.empty, plaqueEls.half, plaqueEls.full],
@@ -1068,6 +1078,7 @@
     });
     tutLater(12.0, function () {
       hideTutMascot();
+      state.locked = false; /* dialogue over — hands on the glasses! */
       startSortHint();
     });
   }

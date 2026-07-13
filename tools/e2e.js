@@ -66,7 +66,10 @@ function expect(label, actual, wanted) {
 
   await page.screenshot({ path: path.join(SHOTS, '0-start.png') });
 
-  // 1. wrong drop: glass 0 is half-full; the Full tray must reject it
+  // the game stays locked until Agni's tutorial dialogue finishes
+  await page.waitForFunction(() => window.__game.locked === false, { timeout: 25000 });
+
+  // 1. wrong drop: glass 0 is empty; the Full tray must reject it
   await dragTo(0, '#zone-full', { shotDuringDrag: '1-dragging.png' });
   await sleep(400); // return-home tween
   expect('placed after wrong drop', await placed(), 0);
@@ -89,6 +92,8 @@ function expect(label, actual, wanted) {
   // the garnish boxes glow once the trays are ready to be dressed
   await page.waitForFunction(
     () => document.getElementById('lemonbox').classList.contains('nudge-glow'), { timeout: 15000 });
+  // taps are ignored until Agni's garnish dialogue finishes
+  await page.waitForFunction(() => window.__game.locked === false, { timeout: 15000 });
 
   // garnish: one tap on each box dresses every glass on the trays
   await page.click('#strawbox');
