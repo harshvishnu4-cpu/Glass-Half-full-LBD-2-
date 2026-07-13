@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const IMG = path.join(__dirname, '..', 'assets', 'img');
+const RAW = path.join(__dirname, '..', 'assets', 'raw'); /* composed-garnish source SVGs live here */
 const ELEM_W = 92, ELEM_H = 136;        // plain glass element size
 const SPRITE_TO_ELEM = ELEM_W / 184;    // plain sprites are 184px wide
 
@@ -55,7 +56,7 @@ async function baseMetrics(buf) {
 
   const cfg = { full: {}, half: {} };
   for (const [type, variant, file] of jobs) {
-    const svg = path.join(IMG, file + '.svg');
+    const svg = path.join(RAW, file + '.svg');
     const meta = await sharp(svg).metadata();
     // render so content height is ~ 480px for a crisp but small webp
     const density = Math.min(600, Math.max(72, Math.round(72 * 480 / meta.height)));

@@ -81,6 +81,7 @@ img { user-select: none; -webkit-user-drag: none; }
   z-index: 6;
   border-radius: 30px;
   opacity: 0;
+  /* soft wash used only as hover feedback while dragging */
   background: radial-gradient(closest-side, rgba(255, 214, 92, 0.30), rgba(255, 214, 92, 0));
   pointer-events: none;
 }
@@ -100,9 +101,6 @@ img { user-select: none; -webkit-user-drag: none; }
   pointer-events: auto;
 }
 .glass img { width: 100%; height: 100%; display: block; pointer-events: none; }
-.glass .garnish { position: absolute; width: auto; height: auto; }
-.glass .garnish.straw { width: 58px; height: 58px; left: 42%; top: -44px; }
-.glass .garnish.lemon { width: 46px; height: 44px; left: -16px; top: -18px; }
 .glass.dragging { cursor: grabbing; }
 .glass.dragging img { filter: drop-shadow(0 20px 22px rgba(0, 0, 0, 0.45)); }
 .glass.placed { cursor: default; }
@@ -123,6 +121,12 @@ img { user-select: none; -webkit-user-drag: none; }
   pointer-events: none;
 }
 .plaque span { font-size: 65px; color: #972129; line-height: 1; }
+/* hint: the brass name plate of the target tray glows brightly */
+.plaque.glow { animation: plaqueGlow 0.7s ease-in-out infinite alternate; }
+@keyframes plaqueGlow {
+  from { filter: drop-shadow(0 0 4px rgba(255, 215, 94, 0.45)) brightness(1); }
+  to   { filter: drop-shadow(0 0 32px rgba(255, 215, 94, 1)) brightness(1.3); }
+}
 #plaque-empty { left: 160px;  top: 968px; }
 #plaque-half  { left: 773px;  top: 969px; }
 #plaque-full  { left: 1405px; top: 969px; }

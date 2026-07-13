@@ -395,13 +395,18 @@
 
   /* glowing-tray hints (also used after two wrong attempts in a row) */
   function hintZone(type) {
-    gsap.to(zoneEls[type], { opacity: 0.9, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    /* only the tray's brass name plate glows and pulses */
+    plaqueEls[type].classList.add('glow');
+    gsap.to(plaqueEls[type], { scale: 1.1, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' });
   }
 
   function clearZoneHints() {
     for (var k in zoneEls) {
       gsap.killTweensOf(zoneEls[k]);
       gsap.to(zoneEls[k], { opacity: 0, duration: 0.25, overwrite: 'auto' });
+      plaqueEls[k].classList.remove('glow');
+      gsap.killTweensOf(plaqueEls[k]);
+      gsap.to(plaqueEls[k], { scale: 1, duration: 0.25, overwrite: 'auto' });
     }
   }
 
@@ -632,7 +637,7 @@
 
   /* the designed order bubble: half/full glass artwork beside the customer */
   function showDemandBubble(type) {
-    demandBubble.src = 'assets/img/bubble-' + type + '.svg';
+    demandBubble.src = 'assets/img/bubble-' + type + '.webp';
     gsap.killTweensOf(demandBubble);
     gsap.set(demandBubble, { y: 0, rotation: 0 });
     gsap.fromTo(demandBubble, { autoAlpha: 0, scale: 0.3 },
@@ -652,7 +657,7 @@
     var lx = gsap.utils.random(70, 220);
     var ly = gsap.utils.random(945, 1000);
     var coin = document.createElement('img');
-    coin.src = 'assets/img/coins.svg';
+    coin.src = 'assets/img/coins.webp';
     coin.className = 'coin-fly';
     stage.appendChild(coin);
     SFX.play('coin');
@@ -748,11 +753,13 @@
       duration: 0.55, ease: 'power1.out'
     });
     gsap.to(state.active.el, { keyframes: { rotation: [-4, 4, -3, 3, 0] }, duration: 0.5 });
-    /* two misses in a row: pulse the right glasses on the tray */
+    /* two misses in a row: pulse the right glasses and name the order */
     state.wrongStreak += 1;
     if (state.wrongStreak >= 2) {
       hintServe();
-      agniSays('Pick a glowing glass from the tray!');
+      agniSays(state.demand === 'half'
+        ? 'Pick one of these half full glasses.'
+        : 'Pick one of these full glasses.');
     }
     returnHome(g);
   }
@@ -1030,7 +1037,7 @@
     if (/[?&]again\b/.test(location.search)) {
       playBtn.classList.add('again');
       var pImg = playBtn.querySelector('img');
-      pImg.src = 'assets/img/play-again.svg';
+      pImg.src = 'assets/img/play-again.webp';
       pImg.alt = 'Play Again';
     }
     /* the title pops once and stays still — only the play button pulses */
