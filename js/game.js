@@ -275,6 +275,7 @@
   function placeGlass(g) {
     g.placed = true;
     g.el.classList.add('placed');
+    g.el.classList.remove('highlight'); /* hint satisfied — stop the glow */
     state.placed += 1;
 
     /* first correct drop ends the sorting tutorial — Agni cheers the player on */
@@ -729,10 +730,11 @@
       onComplete: function () { gsap.set(serveBubble, { visibility: 'hidden' }); } });
   }
 
-  /* pulse the glasses that match the current order */
+  /* glow + pulse the glasses that match the current order */
   function hintServe() {
     state.glasses.forEach(function (g) {
       if (!g.placed && g.type === state.demand) {
+        g.el.classList.add('highlight');
         gsap.to(g.img, { scale: 1.14, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
       }
     });
@@ -740,6 +742,7 @@
 
   function clearServeHint() {
     state.glasses.forEach(function (g) {
+      g.el.classList.remove('highlight');
       gsap.killTweensOf(g.img, 'scale');
       gsap.to(g.img, { scale: 1, duration: 0.2, overwrite: 'auto' });
     });
@@ -889,11 +892,12 @@
 
   function rejectGlass(g) {
     SFX.play('wrong');
-    /* two misses in a row: glow the tray this glass belongs to */
+    /* two misses in a row: the glass AND its tray's brass plate glow together */
     state.wrongStreak += 1;
     if (state.wrongStreak >= 2) {
       clearZoneHints();
       hintZone(g.type);
+      g.el.classList.add('highlight');
       agniSays('Look! This glass goes in the glowing tray.');
     }
     var cx = gsap.getProperty(g.el, 'x');
