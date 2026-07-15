@@ -396,18 +396,41 @@
 
   /* glowing-tray hints (also used after two wrong attempts in a row) */
   function hintZone(type) {
-    /* only the tray's brass name plate glows and pulses */
+    /* the scene dims with a spotlight hole punched over the WHOLE target
+       tray, so the tray itself stays bright; its brass plate glows on top */
+    var z = TRAYS[type].zone;
+    var cx = z.x + z.w / 2;
+    var cy = z.y + z.h / 2 + 25; /* nudged down to cover the plate too */
+    document.getElementById('hint-dim').style.background =
+      'radial-gradient(ellipse ' + Math.round(z.w * 0.68) + 'px ' + Math.round(z.h * 0.72) + 'px at ' +
+      cx + 'px ' + cy + 'px, rgba(10, 5, 20, 0) 55%, rgba(10, 5, 20, 0.55) 88%)';
+    gsap.to('#hint-dim', { autoAlpha: 1, duration: 0.4 });
     plaqueEls[type].classList.add('glow');
     gsap.to(plaqueEls[type], { scale: 1.1, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    for (var k in plaqueEls) {
+      if (k !== type) gsap.to(plaqueEls[k], { opacity: 0.45, duration: 0.4, overwrite: 'auto' });
+    }
+  }
+
+  /* fade every other glass back so only the hinted one draws the eye */
+  function spotlightGlass(g) {
+    state.glasses.forEach(function (o) {
+      if (o !== g && !o.placed) gsap.to(o.el, { opacity: 0.4, duration: 0.4, overwrite: 'auto' });
+    });
   }
 
   function clearZoneHints() {
+    gsap.to('#hint-dim', { autoAlpha: 0, duration: 0.3 });
+    stopHandDemo();
+    state.glasses.forEach(function (o) {
+      gsap.to(o.el, { opacity: 1, duration: 0.3, overwrite: 'auto' });
+    });
     for (var k in zoneEls) {
       gsap.killTweensOf(zoneEls[k]);
       gsap.to(zoneEls[k], { opacity: 0, duration: 0.25, overwrite: 'auto' });
       plaqueEls[k].classList.remove('glow');
-      gsap.killTweensOf(plaqueEls[k]);
-      gsap.to(plaqueEls[k], { scale: 1, duration: 0.25, overwrite: 'auto' });
+      gsap.killTweensOf(plaqueEls[k], 'scale');
+      gsap.to(plaqueEls[k], { scale: 1, opacity: 1, duration: 0.25, overwrite: 'auto' });
     }
   }
 
@@ -460,8 +483,8 @@
     if (!g) return;
     g.el.classList.add('highlight');
     gsap.to(g.img, { scale: 1.16, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
-    clearZoneHints();
-    hintZone('empty'); /* the empty tray glows together with the glass */
+    hintZone('empty');  /* the empty tray's plate glows together with the glass */
+    spotlightGlass(g);  /* the other glasses fall back into the dim */
   }
 
   /* add the ghost drag demo for the hands-on step (glass + tray already glow) */
@@ -892,12 +915,15 @@
 
   function rejectGlass(g) {
     SFX.play('wrong');
-    /* two misses in a row: the glass AND its tray's brass plate glow together */
+    /* two misses in a row: spotlight time — the scene dims, the glass and its
+       tray's brass plate glow, and a ghost glass demos the correct move */
     state.wrongStreak += 1;
     if (state.wrongStreak >= 2) {
       clearZoneHints();
       hintZone(g.type);
       g.el.classList.add('highlight');
+      spotlightGlass(g);
+      startHandDemo(g);
       agniSays('Look! This glass goes in the glowing tray.');
     }
     var cx = gsap.getProperty(g.el, 'x');

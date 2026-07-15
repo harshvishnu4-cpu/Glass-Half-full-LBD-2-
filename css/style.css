@@ -76,6 +76,18 @@ img { user-select: none; -webkit-user-drag: none; }
   opacity: 0;
 }
 
+/* spotlight dim: fades in during hints, under the glasses and plaques so the
+   glowing hint elements pop while the rest of the scene falls back */
+#hint-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: rgba(10, 5, 20, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .tray-zone {
   position: absolute;
   z-index: 6;

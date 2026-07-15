@@ -8,8 +8,8 @@
   var ctx = null, master = null, verb = null;
   var muted = false, ambienceOn = false;
   var music = null;
-  var MUSIC_VOLUME = 0.12;   /* soft bed so the SFX sit clearly on top */
-  var SFX_VOLUME = 0.62;     /* effects a touch louder than the music */
+  var MUSIC_VOLUME = 0.07;   /* quiet bed so the SFX sit clearly on top */
+  var SFX_VOLUME = 0.8;      /* effects well above the music */
 
   function startMusic() {
     if (music) return;
@@ -286,10 +286,14 @@
         bell(n[0], t + n[1], 0.11, 0.9);
       });
     },
-    /* wrong tray: cartoon womp-womp + ghost sliding away */
+    /* wrong glass/tray — spooky "uh-oh": cartoon womp under a ghostly
+       wah-wah slide, topped with rattling bone plinks (kid-friendly, not scary) */
     wrong: function (t) {
       womp(t);
-      ghost(420, 210, 0.5, t + 0.05, 0.06);
+      ghost(520, 260, 0.55, t + 0.03, 0.075);            /* ghost wails "ooOOoo" down */
+      [523.25, 415.3, 329.63].forEach(function (f, i) {  /* skeleton xylophone: C5 Ab4 E4 */
+        bell(f, t + 0.06 + i * 0.11, 0.075, 0.22);
+      });
     },
     /* glass settles back on the shelf */
     land: function (t) {
@@ -343,11 +347,11 @@
     },
     /* the customer pays: jingling coins fly to the counter */
     coin: function () {
-      playSample('coin', 0.55);
+      playSample('coin', 0.75);
     },
     /* the till rings when every customer has been served */
     kaching: function () {
-      playSample('cash-register', 0.6);
+      playSample('cash-register', 0.8);
     },
     /* juice splat bursts over the screen, then drains off the bottom */
     splash: function (t) {
