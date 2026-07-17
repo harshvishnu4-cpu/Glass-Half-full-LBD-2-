@@ -69,14 +69,14 @@ function expect(label, actual, wanted) {
   // the game stays locked until Agni's tutorial dialogue finishes
   await page.waitForFunction(() => window.__game.locked === false, { timeout: 25000 });
 
-  // 1. wrong drop: glass 0 is empty; the Full tray must reject it
-  await dragTo(0, '#zone-full', { shotDuringDrag: '1-dragging.png' });
+  // 1. wrong drop: glass 1 is half full; the Full tray must reject it
+  await dragTo(1, '#zone-full', { shotDuringDrag: '1-dragging.png' });
   await sleep(400); // return-home tween
   expect('placed after wrong drop', await placed(), 0);
-  // a second miss in a row must trigger the glowing-tray hint (spoken by Agni)
-  await dragTo(0, '#zone-full');
+  // a second miss in a row must trigger Agni's type-specific hint
+  await dragTo(1, '#zone-full');
   await page.waitForFunction(
-    () => document.getElementById('tut-mascot-text').textContent.includes('glowing tray'),
+    () => document.getElementById('tut-mascot-text').textContent.includes('This glass is half full'),
     { timeout: 8000 });
   expect('hint after two wrong attempts', true, true);
   await page.screenshot({ path: path.join(SHOTS, '2-after-reject.png') });

@@ -76,14 +76,16 @@
      so whatever is in hand always renders on top */
   /* Agni the dragon's tutorial lines */
   var TUT = [
-    'Making every drink one by one takes too much time.',
-    'Let us keep similar drinks together!',
+    'Making every drink takes too long.',
+    'Let us sort the glasses into trays.',
     'This glass is empty. Put it in the correct tray.',
-    'Great! Now let us serve our customers.',
-    'First, tap the lemon and straw to dress every drink!',
-    'Now drag the correct drink to the customer.',
-    'Awesome! You are ready to serve everyone!'
+    'Great job! Now let us serve our customers.',
+    'Tap the lemons and the straws.',
+    'Awesome! You are ready to serve everyone.'
   ];
+
+  /* how Agni names each fill level in feedback lines */
+  var TYPE_NAMES = { empty: 'empty', half: 'half full', full: 'full' };
 
   /* spooky-but-sweet things the customers say when they get their drink */
   var SERVE_LINES = ['Boo-licious!', 'Fang-tastic!', 'Spook-tacular!', 'Ghoulishly good!', 'Monster yummy!', 'Eek, tasty!'];
@@ -173,11 +175,13 @@
     });
   }
 
-  /* phase 2: the sorted half/full glasses reappear on the two serving trays */
+  /* phase 2: the sorted half/full glasses reappear on the two serving trays.
+     Wider slots than phase 1 — once dressed, the composed glass+lemon+straw
+     art is ~146px wide, so 130px spacing would make neighbours overlap. */
   function buildGlasses2() {
     ['half', 'full'].forEach(function (type) {
       var spec = GLASS_TYPES[type];
-      rowSlots(130).forEach(function (slot, i) {
+      rowSlots(152).forEach(function (slot, i) {
         var cx = PHASE2.trayCenters[type] + slot.dx;
         var g = createGlass(type, cx - spec.w / 2, slot.bottom - spec.h);
         g.el.style.zIndex = 150 + i;
@@ -229,6 +233,11 @@
       state.topZ += 1;
       g.el.style.zIndex = state.topZ;
       g.el.classList.add('dragging');
+      /* the hint glow has done its job once the glass is in hand — the glass
+         goes back to its original look while being dragged, and if it is the
+         RIGHT glass the whole hint switches off (all glasses back to normal) */
+      g.el.classList.remove('highlight');
+      if (state.phase === 2 && state.demand && g.type === state.demand) clearServeHint();
       SFX.unlock();
       SFX.play('pickup');
       gsap.to(g.el, { scale: 1.08, duration: 0.18, ease: 'power2.out' });
@@ -282,7 +291,7 @@
     if (!state.firstSortDone) {
       state.firstSortDone = true;
       stopSortHint();
-      agniSays('Now it is your turn!'); /* clears the tutorial timers, then auto-hides */
+      agniSays('Sort the rest of the glasses.'); /* clears the tutorial timers, then auto-hides */
     }
     state.wrongStreak = 0;
     clearZoneHints();
@@ -576,7 +585,7 @@
   function phase2Intro() {
     SFX.play('win');
     confettiBurst(50);
-    showTutMascot(TUT[3]); /* Agni: "Great! Now let's serve our customers." */
+    showTutMascot(TUT[3]); /* Agni: "Great job! Now let us serve our customers." */
     gsap.delayedCall(3.2, function () { hideTutMascot(); });
     gsap.delayedCall(3.6, transitionToPhase2);
   }
@@ -600,7 +609,7 @@
     }, function () {
       /* level 2 opens by asking the player to dress the drinks; no customer
          arrives until both the lemon and straw have been added */
-      showTutMascot(TUT[4]); /* Agni: "First, tap the lemon and straw..." */
+      showTutMascot(TUT[4]); /* Agni: "Tap the lemons and the straws." */
       startGarnishNudge();   /* the garnish boxes glow & bob until tapped */
       gsap.delayedCall(5.5, function () {
         hideTutMascot();
@@ -710,7 +719,7 @@
     if (!state.firstServeDone) {
       state.firstServeDone = true;
       gsap.delayedCall(0.8, function () {
-        showTutMascot(TUT[6]); /* Agni: "Awesome! You're ready to serve everyone!" */
+        showTutMascot(TUT[5]); /* Agni: "Awesome! You are ready to serve everyone." */
       });
       gsap.delayedCall(4.2, function () { hideTutMascot(); });
     }
@@ -753,12 +762,16 @@
       onComplete: function () { gsap.set(serveBubble, { visibility: 'hidden' }); } });
   }
 
-  /* glow + pulse the glasses that match the current order */
+  /* glow + pulse the glasses that match the current order; fromTo keeps every
+     glass in sync even if one had its pulse reset by a pick-up, and the gentle
+     1.08 peak keeps the dressed glasses from crowding their neighbours */
   function hintServe() {
     state.glasses.forEach(function (g) {
       if (!g.placed && g.type === state.demand) {
         g.el.classList.add('highlight');
-        gsap.to(g.img, { scale: 1.14, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+        gsap.killTweensOf(g.img, 'scale');
+        gsap.fromTo(g.img, { scale: 1 },
+          { scale: 1.08, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
       }
     });
   }
@@ -783,9 +796,7 @@
     state.wrongStreak += 1;
     if (state.wrongStreak >= 2) {
       hintServe();
-      agniSays(state.demand === 'half'
-        ? 'Pick one of these half full glasses.'
-        : 'Pick one of these full glasses.');
+      agniSays('Pick a ' + TYPE_NAMES[state.demand] + ' glass.');
     }
     returnHome(g);
   }
@@ -876,7 +887,7 @@
       state.locked = true; /* hold serving until the cheer + walk-in finish */
       gsap.delayedCall(0.35, centerServingTrays);
       gsap.delayedCall(1.1, function () {
-        showTutMascot(TUT[6]); /* "Awesome! You're ready to serve everyone!" */
+        showTutMascot(TUT[5]); /* "Awesome! You are ready to serve everyone." */
       });
       gsap.delayedCall(4.8, function () { hideTutMascot(); });
       gsap.delayedCall(5.2, function () {
@@ -924,7 +935,7 @@
       g.el.classList.add('highlight');
       spotlightGlass(g);
       startHandDemo(g);
-      agniSays('Look! This glass goes in the glowing tray.');
+      agniSays('This glass is ' + TYPE_NAMES[g.type] + '. Put it in the correct tray.');
     }
     var cx = gsap.getProperty(g.el, 'x');
     gsap.timeline({ onComplete: function () { returnHome(g); } })

@@ -1,0 +1,5 @@
+# dev dependencies (reinstall with: npm i)
+node_modules/
+
+# generated test screenshots
+tools/e2e-shots/
