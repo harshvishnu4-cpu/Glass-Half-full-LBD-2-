@@ -13,8 +13,6 @@ body {
   overflow: hidden;
   font-family: 'Lilita One', system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
-  /* spooky ghost cursor everywhere (hotspot at the top of its head) */
-  cursor: url('../assets/img/cursor-ghost.png') 20 5, auto;
 }
 
 #viewport { position: fixed; inset: 0; overflow: hidden; touch-action: none; }
@@ -66,8 +64,8 @@ img { user-select: none; -webkit-user-drag: none; }
 .phase2 { opacity: 0; visibility: hidden; }
 #trays2   { left: 686px; top: 718px; width: 1234px; height: 362px; z-index: 4; mix-blend-mode: multiply; }
 /* the garnish boxes are tappable: one tap dresses every glass */
-#lemonbox { left: 53px;  top: 706px; width: 305px; z-index: 4; pointer-events: auto; cursor: url('../assets/img/cursor-ghost.png') 20 5, pointer; }
-#strawbox { left: 381px; top: 668px; width: 305px; z-index: 4; pointer-events: auto; cursor: url('../assets/img/cursor-ghost.png') 20 5, pointer; }
+#lemonbox { left: 53px;  top: 706px; width: 305px; z-index: 4; pointer-events: auto; cursor: pointer; }
+#strawbox { left: 381px; top: 668px; width: 305px; z-index: 4; pointer-events: auto; cursor: pointer; }
 
 #sky-sparkles { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .sparkle {
@@ -76,18 +74,6 @@ img { user-select: none; -webkit-user-drag: none; }
   border-radius: 50%;
   background: radial-gradient(circle, #fff 0%, rgba(255, 255, 255, 0) 70%);
   opacity: 0;
-}
-
-/* spotlight dim: fades in during hints, under the glasses and plaques so the
-   glowing hint elements pop while the rest of the scene falls back */
-#hint-dim {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  background: rgba(10, 5, 20, 0.55);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .tray-zone {
@@ -109,16 +95,15 @@ img { user-select: none; -webkit-user-drag: none; }
 
 .glass {
   position: absolute;
-  cursor: url('../assets/img/cursor-ghost.png') 20 5, grab;
+  cursor: grab;
   touch-action: none;
   will-change: transform;
   pointer-events: auto;
 }
 .glass img { width: 100%; height: 100%; display: block; pointer-events: none; }
-/* while holding a glass the ghost closes its eyes and hangs on */
-.glass.dragging { cursor: url('../assets/img/cursor-ghost-grab.png') 20 5, grabbing; }
+.glass.dragging { cursor: grabbing; }
 .glass.dragging img { filter: drop-shadow(0 20px 22px rgba(0, 0, 0, 0.45)); }
-.glass.placed { cursor: url('../assets/img/cursor-ghost.png') 20 5, default; }
+.glass.placed { cursor: default; }
 /* tutorial spotlight on the full glass Agni is talking about */
 .glass.highlight img { animation: glassGlow 0.7s ease-in-out infinite alternate; }
 @keyframes glassGlow {
@@ -195,7 +180,7 @@ img { user-select: none; -webkit-user-drag: none; }
   padding: 18px 26px 46px;
   font-size: 34px;
   line-height: 1.12;
-  color: #f7941e;
+  color: #000;
   text-align: center;
   text-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
   opacity: 0;
@@ -245,7 +230,7 @@ img { user-select: none; -webkit-user-drag: none; }
   font-size: 34px;
   line-height: 1.18;
   font-weight: normal;
-  color: #f7941e;
+  color: #000;
   text-align: center;
   text-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
 }
@@ -291,7 +276,7 @@ img { user-select: none; -webkit-user-drag: none; }
   margin-left: -120px;
   background: none;
   border: none;
-  cursor: url('../assets/img/cursor-ghost.png') 20 5, pointer;
+  cursor: pointer;
   padding: 0;
 }
 /* wider pill when it's the "Play Again" button (shown after a win) */
