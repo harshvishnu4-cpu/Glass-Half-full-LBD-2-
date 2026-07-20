@@ -208,7 +208,8 @@ img { user-select: none; -webkit-user-drag: none; }
    and re-anchored so his head stays near the speech bubble */
 #tut-mascot-img {
   position: absolute;
-  left: 1400px; top: 400px;
+  /* fully inside the 1920px stage so his wing never gets clipped mid-screen */
+  left: 1279px; top: 400px;
   width: 641px; height: 754px;
   filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.45));
 }

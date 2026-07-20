@@ -341,6 +341,30 @@
     state.tutTimers.push(gsap.delayedCall(delay, fn));
   }
 
+  /* ---------- inactivity nudge ----------
+     if the player goes quiet for ~9s while the game is waiting on them,
+     Agni gently reminds them what to do (and repeats if they stay idle) */
+  var idleCall = null;
+  function armIdleNudge() {
+    if (idleCall) idleCall.kill();
+    idleCall = gsap.delayedCall(9, idleNudge);
+  }
+  function idleNudge() {
+    armIdleNudge(); /* keep watching — nudge again if they stay idle */
+    if (!gameStarted || state.locked) return;
+    if (state.phase === 1) {
+      if (state.placed >= START_GLASSES.length) return;
+      agniSays('Let us sort the glasses into trays.');
+    } else if (!state.strawTapped || !state.lemonTapped) {
+      agniSays(TUT[4]); /* "Tap the lemons and the straws." */
+    } else if (state.demand) {
+      hintServe(); /* glow the glasses that match the order */
+      agniSays('Pick a ' + TYPE_NAMES[state.demand] + ' glass.');
+    }
+  }
+  document.addEventListener('pointerdown', armIdleNudge);
+  armIdleNudge();
+
   /* full-body Agni + speech bubble for the guided tutorial (design node 670-2) */
   var tutMascot = document.getElementById('tut-mascot');
   var tutMascotImg = document.getElementById('tut-mascot-img');
