@@ -17,12 +17,15 @@ body {
 
 #viewport { position: fixed; inset: 0; overflow: hidden; touch-action: none; }
 
-/* Fixed 1920x1080 stage, scaled to fit the window from JS */
+/* Fixed 1920x1080 stage, scaled to fit the window from JS. overflow:hidden
+   clips oversized effects (splash waves, entering characters) to the stage,
+   so nothing spills into the letterbox margins on non-16:9 windows */
 #stage {
   position: absolute;
   top: 0; left: 0;
   width: 1920px; height: 1080px;
   transform-origin: 0 0;
+  overflow: hidden;
 }
 
 img { user-select: none; -webkit-user-drag: none; }

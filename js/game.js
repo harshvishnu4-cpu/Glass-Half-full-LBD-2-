@@ -233,9 +233,10 @@
       state.topZ += 1;
       g.el.style.zIndex = state.topZ;
       g.el.classList.add('dragging');
-      /* the hint glow has done its job once the glass is in hand — the glass
-         goes back to its original look while being dragged, and if it is the
-         RIGHT glass the whole hint switches off (all glasses back to normal) */
+      /* the hint has done its job once a glass is in hand — the ghost demo
+         stops, this glass loses its glow, and if it is the RIGHT glass the
+         whole hint switches off (all glasses back to normal) */
+      stopHandDemo();
       g.el.classList.remove('highlight');
       if (state.phase === 2 && state.demand && g.type === state.demand) clearServeHint();
       SFX.unlock();
@@ -353,14 +354,16 @@
     armIdleNudge(); /* keep watching — nudge again if they stay idle */
     if (!gameStarted || state.locked) return;
     if (state.phase === 1) {
-      if (state.placed >= START_GLASSES.length) return;
-      agniSays('Let us sort the glasses into trays.');
-    } else if (!state.strawTapped || !state.lemonTapped) {
-      agniSays(TUT[4]); /* "Tap the lemons and the straws." */
-    } else if (state.demand) {
-      hintServe(); /* glow the glasses that match the order */
-      agniSays('Pick a ' + TYPE_NAMES[state.demand] + ' glass.');
+      /* quiet visual nudge: a ghost glass demos the next move (skip if a
+         demo is already running from the tutorial or a wrong-drop hint) */
+      if (state.placed >= START_GLASSES.length || ghostTl) return;
+      for (var i = 0; i < state.glasses.length; i++) {
+        if (!state.glasses[i].placed) { startHandDemo(state.glasses[i]); break; }
+      }
+    } else if (state.strawTapped && state.lemonTapped && state.demand) {
+      hintServe(); /* the glasses matching the order glow */
     }
+    /* garnish step needs nothing extra — the untapped boxes already glow */
   }
   document.addEventListener('pointerdown', armIdleNudge);
   armIdleNudge();
@@ -373,13 +376,18 @@
   var tutMascotIn = false;
   var typeCall = null;
 
-  /* reveal the line one character at a time, with a soft blip per letter */
-  function typewrite(text, startDelay) {
+  /* reveal the line one character at a time, with a soft blip per letter;
+     onDone (optional) fires the moment the full line has been typed */
+  function typewrite(text, startDelay, onDone) {
     if (typeCall) { typeCall.kill(); typeCall = null; }
     tutMascotText.textContent = '';
     var i = 0;
     function step() {
-      if (i >= text.length) { typeCall = null; return; }
+      if (i >= text.length) {
+        typeCall = null;
+        if (onDone) onDone();
+        return;
+      }
       var ch = text.charAt(i);
       tutMascotText.textContent += ch;
       i += 1;
@@ -389,7 +397,7 @@
     typeCall = gsap.delayedCall(startDelay || 0, step);
   }
 
-  function showTutMascot(text) {
+  function showTutMascot(text, onDone) {
     if (!tutMascotIn) {
       tutMascotIn = true;
       SFX.play('ask');
@@ -399,13 +407,13 @@
         { x: 0, autoAlpha: 1, duration: 0.6, ease: 'power3.out' });
       gsap.fromTo(tutMascotBubble, { autoAlpha: 0, scale: 0.3 },
         { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'back.out(2)', delay: 0.35, transformOrigin: '54% 100%' });
-      typewrite(text, 0.7); /* start typing once the bubble has popped in */
+      typewrite(text, 0.7, onDone); /* start typing once the bubble has popped in */
     } else {
       /* already on screen — pop the bubble and retype the new line */
       SFX.play('ask');
       gsap.fromTo(tutMascotBubble, { scale: 0.9 },
         { scale: 1, duration: 0.3, ease: 'back.out(2.4)', transformOrigin: '54% 100%' });
-      typewrite(text, 0.2);
+      typewrite(text, 0.2, onDone);
     }
     /* friendly gesture wiggle */
     gsap.fromTo(tutMascotImg, { rotation: -2 },
@@ -610,13 +618,13 @@
       state.demandQueue = shuffle(['half', 'half', 'half', 'full', 'full', 'full']);
     }, function () {
       /* level 2 opens by asking the player to dress the drinks; no customer
-         arrives until both the lemon and straw have been added */
-      showTutMascot(TUT[4]); /* Agni: "Tap the lemons and the straws." */
-      startGarnishNudge();   /* the garnish boxes glow & bob until tapped */
-      gsap.delayedCall(5.5, function () {
-        hideTutMascot();
-        state.locked = false; /* dialogue over — the boxes are tappable now */
+         arrives until both the lemon and straw have been added. The boxes
+         become tappable the moment Agni finishes saying the line. */
+      showTutMascot(TUT[4], function () { /* "Tap the lemons and the straws." */
+        state.locked = false; /* dialogue over — tap away! */
+        tutLater(1.5, function () { hideTutMascot(); });
       });
+      startGarnishNudge();   /* the garnish boxes glow & bob until tapped */
     });
   }
 
@@ -887,6 +895,7 @@
     if (state.strawTapped && state.lemonTapped && !state.traysCentered) {
       state.traysCentered = true;
       state.locked = true; /* hold serving until the cheer + walk-in finish */
+      clearTutTimers(); /* cancel the intro bubble's pending hide — the cheer owns Agni now */
       gsap.delayedCall(0.35, centerServingTrays);
       gsap.delayedCall(1.1, function () {
         showTutMascot(TUT[5]); /* "Awesome! You are ready to serve everyone." */
@@ -1061,8 +1070,9 @@
       if (winVideo.play) {
         try { winVideo.currentTime = 0; var pr = winVideo.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { /* poster stays as fallback */ }
       }
-      /* safety net if the video can't autoplay or 'ended' never fires */
-      gsap.delayedCall(7.5, returnToTitle);
+      /* safety net if the video can't autoplay or 'ended' never fires
+         (the celebration runs ~4s) */
+      gsap.delayedCall(5.5, returnToTitle);
     } else {
       gsap.delayedCall(3.5, returnToTitle);
     }
