@@ -1063,12 +1063,26 @@
     gsap.fromTo('#win-bg', { scale: 1.06 }, { scale: 1, duration: 0.6, ease: 'power2.out' });
     gsap.delayedCall(1.4, function () { confettiBurst(60); });
 
-    /* play the celebration once; when it ends, head back to the title screen */
+    /* play the celebration once — WITH its own audio (the background music
+       fades out so the video takes the stage); when it ends, back to the
+       title screen. If the browser blocks audible playback, fall back to
+       muted so the celebration always plays. */
     var winVideo = document.getElementById('win-bg');
     if (winVideo) {
       winVideo.addEventListener('ended', returnToTitle, { once: true });
+      SFX.stopMusic();
       if (winVideo.play) {
-        try { winVideo.currentTime = 0; var pr = winVideo.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { /* poster stays as fallback */ }
+        try {
+          winVideo.currentTime = 0;
+          winVideo.muted = false;
+          winVideo.volume = 1;
+          var pr = winVideo.play();
+          if (pr && pr.catch) pr.catch(function () {
+            winVideo.muted = true;
+            var p2 = winVideo.play();
+            if (p2 && p2.catch) p2.catch(function () {});
+          });
+        } catch (e) { /* poster stays as fallback */ }
       }
       /* safety net if the video can't autoplay or 'ended' never fires
          (the celebration runs ~4s) */

@@ -419,6 +419,17 @@
       if (muted || !ensure() || !cues[name]) return;
       cues[name](ctx.currentTime);
     },
+    /* fade the background music out (e.g. so the end-screen video's own
+       audio can take the stage) */
+    stopMusic: function () {
+      if (!music) return;
+      var m = music;
+      music = null; /* a fresh start on the next unlock */
+      var fade = setInterval(function () {
+        m.volume = Math.max(0, m.volume - 0.02);
+        if (m.volume <= 0) { clearInterval(fade); m.pause(); }
+      }, 60);
+    },
     toggleMute: function () {
       muted = !muted;
       if (master) {
