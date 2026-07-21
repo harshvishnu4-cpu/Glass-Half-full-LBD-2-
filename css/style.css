@@ -191,20 +191,6 @@ img { user-select: none; -webkit-user-drag: none; }
   pointer-events: none;
 }
 
-#phase-banner {
-  position: absolute;
-  z-index: 10;
-  top: 44%; left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 84px;
-  color: #ffc93c;
-  text-shadow: 0 6px 0 #972129, 0 14px 30px rgba(0, 0, 0, 0.55);
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
 /* Agni the dragon stands bottom-right and speaks all guidance */
 #tut-mascot { position: absolute; inset: 0; z-index: 9; pointer-events: none; visibility: hidden; }
 /* full-body Agni, scaled down ~22% from the Figma box (was 1295,344 · 822x967)

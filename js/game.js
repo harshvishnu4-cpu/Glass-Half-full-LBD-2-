@@ -93,7 +93,7 @@
   var state = {
     glasses: [], placed: 0, topZ: 500, locked: false,
     phase: 1, served: 0, demand: null, active: null,
-    stock: { half: 3, full: 3 }, demandQueue: [],
+    demandQueue: [],
     firstSortDone: false, firstServeDone: false, tutTimers: [],
     wrongStreak: 0, coins: 0, hintGlass: null,
     strawTapped: false, lemonTapped: false, traysCentered: false
@@ -223,7 +223,9 @@
 
   function makeDraggable(g) {
     g.el.addEventListener('pointerdown', function (e) {
-      if (g.placed || state.locked) return;
+      /* g.drag guard: a second finger on the same glass must not re-grab it
+         (it would re-capture the pointer and make the glass jump) */
+      if (g.placed || state.locked || g.drag) return;
       e.preventDefault();
       try { g.el.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events have no active pointer */ }
       g.drag = {
@@ -719,7 +721,6 @@
     g.placed = true;
     var demanded = state.demand;
     state.demand = null; /* close the round */
-    state.stock[demanded] -= 1;
     state.served += 1;
     hideDemandBubble();
     state.wrongStreak = 0;
@@ -837,6 +838,9 @@
   Object.keys(GARNISH_ART).forEach(function (t) {
     Object.keys(GARNISH_ART[t]).forEach(function (v) { new Image().src = GARNISH_ART[t][v].src; });
   });
+  // ...and the phase-2 speech/order bubbles, so their first pop-in is instant
+  ['assets/img/bubble-half.webp', 'assets/img/bubble-full.webp', 'assets/img/side-bubble.webp']
+    .forEach(function (src) { new Image().src = src; });
 
   /* swap a glass to its composed garnish art, aligning the glass body exactly
      and popping the new garnish up from the glass base */
@@ -1052,7 +1056,12 @@
   function returnToTitle() {
     if (returning) return;
     returning = true;
-    splashTransition(function () { location.search = '?again'; }, null);
+    splashTransition(function () {
+      /* assigning an identical search string does NOT navigate, so replays
+         after the first one need an explicit reload */
+      if (/[?&]again\b/.test(location.search)) location.reload();
+      else location.search = '?again';
+    }, null);
   }
 
   function showWin() {
