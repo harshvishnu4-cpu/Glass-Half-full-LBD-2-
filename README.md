@@ -61,7 +61,7 @@ files. The palette is "spooky, but friendly": a ghostly rise when you grab a
 glass, minor-key sparkle bells on a correct drop, a cartoon womp-womp on a
 wrong one, and a bell run with a ghost-choir pad for the win — over a soft
 night ambience of wind and a distant owl. A looping background music track
-(`audio/background.mp3`) fades in underneath. Audio starts on the first tap
+(`audio/background.ogg`) fades in underneath. Audio starts on the first tap
 or click (browser autoplay policy).
 
 ## Testing

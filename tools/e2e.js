@@ -6,7 +6,9 @@ const path = require('path');
 const fs = require('fs');
 
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const URL = 'file:///' + path.resolve(__dirname, '..', 'index.html').replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/').replace(/%3A/, ':');
+// default: file:// (preloader skips fetch there); set GAME_URL to test over HTTP
+const URL = process.env.GAME_URL ||
+  'file:///' + path.resolve(__dirname, '..', 'index.html').replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/').replace(/%3A/, ':');
 const SHOTS = path.join(__dirname, 'e2e-shots');
 fs.mkdirSync(SHOTS, { recursive: true });
 
@@ -26,19 +28,27 @@ function expect(label, actual, wanted) {
   });
   const page = await browser.newPage();
   await page.setViewport({ width: 1920, height: 1080 });
-  const errors = [];
+  const errors = [], badResponses = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  page.on('response', (r) => { if (r.status() >= 400) badResponses.push(r.status() + ' ' + r.url()); });
 
   await page.goto(URL);
   await sleep(1400); // title screen entrance
   expect('title screen visible', await page.evaluate(
     () => getComputedStyle(document.getElementById('title-screen')).display !== 'none'), true);
+  // the Play button appears only once the preloader finishes
+  await page.waitForFunction(
+    () => getComputedStyle(document.getElementById('play-btn')).visibility === 'visible', { timeout: 30000 });
   await page.screenshot({ path: path.join(SHOTS, '0-title.png') });
   await page.click('#play-btn');
   await sleep(800); // mid-splash
   await page.screenshot({ path: path.join(SHOTS, '0b-splash.png') });
   await sleep(4400); // rest of splash + intro
   expect('background music playing', await page.evaluate(() => window.SFX.musicPlaying()), true);
+  // Agni's tutorial lines are spoken aloud by the recorded voice-over
+  await page.waitForFunction(() => window.SFX.voicePlaying(), { timeout: 10000 });
+  expect('voice-over speaking during tutorial', true, true);
 
   const center = (sel, idx = 0) => page.evaluate((s, i) => {
     const el = document.querySelectorAll(s)[i];
@@ -100,13 +110,15 @@ function expect(label, actual, wanted) {
   await sleep(900);
   expect('straws added to all glasses', await page.evaluate(() => {
     const gs = window.__game.glasses;
-    return gs.length === 6 && gs.every((g) => g.hasStraw && /garnish-\w+-straw/.test(g.img.src));
+    return gs.length === 6 && gs.every((g) =>
+      g.hasStraw && /garnish-\w+-straw/.test(g.img.dataset.art) && g.img.complete && g.img.naturalWidth > 0);
   }), true);
   await page.click('#lemonbox');
   await sleep(900);
   expect('lemons added to all glasses', await page.evaluate(() => {
     const gs = window.__game.glasses;
-    return gs.length === 6 && gs.every((g) => g.hasLemon && /garnish-\w+-both/.test(g.img.src));
+    return gs.length === 6 && gs.every((g) =>
+      g.hasLemon && /garnish-\w+-both/.test(g.img.dataset.art) && g.img.complete && g.img.naturalWidth > 0);
   }), true);
   await page.screenshot({ path: path.join(SHOTS, '3b-garnished.png') });
 
@@ -160,6 +172,8 @@ function expect(label, actual, wanted) {
 
   console.log('page errors:', errors.length ? errors.join(' | ') : 'none');
   if (errors.length) failures++;
+  console.log('4xx/5xx responses:', badResponses.length ? badResponses.join(' | ') : 'none');
+  if (badResponses.length) failures++;
   await browser.close();
   console.log(failures ? `E2E FAILED (${failures})` : 'E2E ALL GREEN');
   process.exit(failures ? 1 : 0);

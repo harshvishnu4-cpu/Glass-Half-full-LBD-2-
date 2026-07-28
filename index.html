@@ -57,15 +57,22 @@
       <div id="fx-layer"></div>
 
       <!-- end / success screen: the celebration plays once, then the game
-           returns to the title screen (whose Play button restarts the game) -->
+           returns to the title screen (whose Play button restarts the game).
+           preload="none": the preloader fetches the video, so the element
+           must not download it a second time -->
       <div id="win-overlay">
         <video id="win-bg" src="assets/img/endscreen.webm" poster="assets/img/endscreen.webp"
-               playsinline preload="auto" aria-label="Sold out! You served every customer."></video>
+               playsinline preload="none" aria-label="Sold out! You served every customer."></video>
       </div>
 
-      <!-- title screen (Spooky Rush logo art) -->
+      <!-- title screen (Spooky Rush logo art); the Play button stays hidden
+           behind the juice loading bar until every asset is fetched -->
       <div id="title-screen">
         <img id="title-bg" src="assets/img/title.webp" alt="Spooky Rush">
+        <div id="load-wrap" aria-hidden="true">
+          <div id="load-bar"><div id="load-fill"></div></div>
+          <span id="load-txt">Pouring the juice… 0%</span>
+        </div>
         <button id="play-btn" aria-label="Play"><img src="assets/img/playbutton.webp" alt="Play"></button>
       </div>
 
@@ -108,6 +115,8 @@
 
   <script src="js/vendor/gsap.min.js"></script>
   <script src="js/sfx.js"></script>
+  <script src="js/preload-manifest.js"></script>
+  <script src="js/preload.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

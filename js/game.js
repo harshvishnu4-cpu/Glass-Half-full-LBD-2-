@@ -4,6 +4,10 @@
 (function () {
   'use strict';
 
+  /* every dynamically-set asset src goes through the preloader's blob map,
+     so once loading finishes nothing touches the network again */
+  function ASSET(u) { return window.PRELOAD ? window.PRELOAD.url(u) : u; }
+
   var GLASS_TYPES = {
     full:  { src: 'assets/img/glass-full.webp',  w: 106, h: 157 },
     half:  { src: 'assets/img/glass-half.webp',  w: 106, h: 158 },
@@ -87,6 +91,22 @@
   /* how Agni names each fill level in feedback lines */
   var TYPE_NAMES = { empty: 'empty', half: 'half full', full: 'full' };
 
+  /* recorded voice-over for every line Agni speaks, keyed by the exact text;
+     the clip plays as the line types out (and replaces the typing blips) */
+  var VO = {
+    'Making every drink takes too long.': 'audio/vo-too-long.ogg',
+    'Let us sort the glasses into trays.': 'audio/vo-sort-trays.ogg',
+    'This glass is empty. Put it in the correct tray.': 'audio/vo-glass-empty.ogg',
+    'This glass is half full. Put it in the correct tray.': 'audio/vo-glass-half.ogg',
+    'This glass is full. Put it in the correct tray.': 'audio/vo-glass-full.ogg',
+    'Sort the rest of the glasses.': 'audio/vo-sort-rest.ogg',
+    'Great job! Now let us serve our customers.': 'audio/vo-serve-customers.ogg',
+    'Tap the lemons and the straws.': 'audio/vo-tap-garnish.ogg',
+    'Awesome! You are ready to serve everyone.': 'audio/vo-ready.ogg',
+    'Pick a half full glass.': 'audio/vo-pick-half.ogg',
+    'Pick a full glass.': 'audio/vo-pick-full.ogg'
+  };
+
   /* spooky-but-sweet things the customers say when they get their drink */
   var SERVE_LINES = ['Boo-licious!', 'Fang-tastic!', 'Spook-tacular!', 'Ghoulishly good!', 'Monster yummy!', 'Eek, tasty!'];
 
@@ -150,7 +170,7 @@
     el.style.height = spec.h + 'px';
 
     var img = document.createElement('img');
-    img.src = spec.src;
+    img.src = ASSET(spec.src);
     img.alt = type + ' glass';
     el.appendChild(img);
     glassLayer.appendChild(el);
@@ -337,7 +357,7 @@
     if (hintTimer) hintTimer.kill();
     clearTutTimers();
     showTutMascot(text);
-    hintTimer = gsap.delayedCall(3.6, function () { hideTutMascot(); });
+    hintTimer = gsap.delayedCall(4.5, function () { hideTutMascot(); }); /* long enough for the spoken line */
   }
 
   function tutLater(delay, fn) {
@@ -377,6 +397,19 @@
   var tutMascotText = document.getElementById('tut-mascot-text');
   var tutMascotIn = false;
   var typeCall = null;
+  var voCall = null, lineVoiced = false;
+
+  /* schedule the line's recorded voice to start alongside the typing;
+     any not-yet-started clip from a previous line is cancelled */
+  function speakLine(text, delay) {
+    if (voCall) { voCall.kill(); voCall = null; }
+    lineVoiced = !!VO[text];
+    if (!lineVoiced) return;
+    voCall = gsap.delayedCall(delay, function () {
+      voCall = null;
+      SFX.voice(VO[text]);
+    });
+  }
 
   /* reveal the line one character at a time, with a soft blip per letter;
      onDone (optional) fires the moment the full line has been typed */
@@ -393,7 +426,7 @@
       var ch = text.charAt(i);
       tutMascotText.textContent += ch;
       i += 1;
-      if (ch !== ' ') SFX.play('type'); /* blip on visible glyphs only */
+      if (ch !== ' ' && !lineVoiced) SFX.play('type'); /* the voice-over replaces the blips */
       typeCall = gsap.delayedCall(ch === ' ' ? 0.02 : 0.045, step);
     }
     typeCall = gsap.delayedCall(startDelay || 0, step);
@@ -409,12 +442,14 @@
         { x: 0, autoAlpha: 1, duration: 0.6, ease: 'power3.out' });
       gsap.fromTo(tutMascotBubble, { autoAlpha: 0, scale: 0.3 },
         { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'back.out(2)', delay: 0.35, transformOrigin: '54% 100%' });
+      speakLine(text, 0.7);
       typewrite(text, 0.7, onDone); /* start typing once the bubble has popped in */
     } else {
       /* already on screen — pop the bubble and retype the new line */
       SFX.play('ask');
       gsap.fromTo(tutMascotBubble, { scale: 0.9 },
         { scale: 1, duration: 0.3, ease: 'back.out(2.4)', transformOrigin: '54% 100%' });
+      speakLine(text, 0.2);
       typewrite(text, 0.2, onDone);
     }
     /* friendly gesture wiggle */
@@ -425,6 +460,9 @@
 
   function hideTutMascot() {
     if (typeCall) { typeCall.kill(); typeCall = null; }
+    /* a clip that has not started yet must not speak after Agni leaves
+       (one already playing is left to finish naturally — no mid-word cuts) */
+    if (voCall) { voCall.kill(); voCall = null; }
     if (!tutMascotIn) return;
     tutMascotIn = false;
     gsap.to(tutMascotBubble, { autoAlpha: 0, scale: 0.4, duration: 0.25, ease: 'back.in(1.6)' });
@@ -464,7 +502,7 @@
     stopHandDemo();
     var spec = GLASS_TYPES[g.type];
     ghostGlassEl = document.createElement('img');
-    ghostGlassEl.src = spec.src;
+    ghostGlassEl.src = ASSET(spec.src);
     ghostGlassEl.className = 'glass-ghost';
     ghostGlassEl.style.width = g.w + 'px';
     ghostGlassEl.style.height = g.h + 'px';
@@ -598,8 +636,8 @@
     SFX.play('win');
     confettiBurst(50);
     showTutMascot(TUT[3]); /* Agni: "Great job! Now let us serve our customers." */
-    gsap.delayedCall(3.2, function () { hideTutMascot(); });
-    gsap.delayedCall(3.6, transitionToPhase2);
+    gsap.delayedCall(4.6, function () { hideTutMascot(); }); /* the spoken line runs ~4.6s in */
+    gsap.delayedCall(5.0, transitionToPhase2);
   }
 
   function transitionToPhase2() {
@@ -682,7 +720,7 @@
 
   /* the designed order bubble: half/full glass artwork beside the customer */
   function showDemandBubble(type) {
-    demandBubble.src = 'assets/img/bubble-' + type + '.webp';
+    demandBubble.src = ASSET('assets/img/bubble-' + type + '.webp');
     gsap.killTweensOf(demandBubble);
     gsap.set(demandBubble, { y: 0, rotation: 0 });
     gsap.fromTo(demandBubble, { autoAlpha: 0, scale: 0.3 },
@@ -702,7 +740,7 @@
     var lx = gsap.utils.random(70, 220);
     var ly = gsap.utils.random(945, 1000);
     var coin = document.createElement('img');
-    coin.src = 'assets/img/coins.webp';
+    coin.src = ASSET('assets/img/coins.webp');
     coin.className = 'coin-fly';
     stage.appendChild(coin);
     SFX.play('coin');
@@ -732,7 +770,7 @@
       gsap.delayedCall(0.8, function () {
         showTutMascot(TUT[5]); /* Agni: "Awesome! You are ready to serve everyone." */
       });
-      gsap.delayedCall(4.2, function () { hideTutMascot(); });
+      gsap.delayedCall(5.5, function () { hideTutMascot(); }); /* let the spoken cheer finish */
     }
 
     var c = state.active;
@@ -834,13 +872,17 @@
       both:  { src: 'assets/img/garnish-half-both.webp', w: 127, h: 182.7, left: -20.7, top: -46.7 }
     }
   };
-  // warm the browser cache so the swap is instant
-  Object.keys(GARNISH_ART).forEach(function (t) {
-    Object.keys(GARNISH_ART[t]).forEach(function (v) { new Image().src = GARNISH_ART[t][v].src; });
+  /* warm the decoders once the preloader has everything as local blobs (on
+     file:// this fires immediately and warms the browser cache instead), so
+     the first garnish swap, bubble pop-in and spoken line are all instant */
+  window.PRELOAD.onReady(function () {
+    Object.keys(GARNISH_ART).forEach(function (t) {
+      Object.keys(GARNISH_ART[t]).forEach(function (v) { new Image().src = ASSET(GARNISH_ART[t][v].src); });
+    });
+    ['assets/img/bubble-half.webp', 'assets/img/bubble-full.webp', 'assets/img/side-bubble.webp']
+      .forEach(function (src) { new Image().src = ASSET(src); });
+    SFX.preloadVoices(Object.keys(VO).map(function (t) { return VO[t]; }));
   });
-  // ...and the phase-2 speech/order bubbles, so their first pop-in is instant
-  ['assets/img/bubble-half.webp', 'assets/img/bubble-full.webp', 'assets/img/side-bubble.webp']
-    .forEach(function (src) { new Image().src = src; });
 
   /* swap a glass to its composed garnish art, aligning the glass body exactly
      and popping the new garnish up from the glass base */
@@ -848,7 +890,8 @@
     var variant = g.hasStraw && g.hasLemon ? 'both' : (g.hasStraw ? 'straw' : 'lemon');
     var art = GARNISH_ART[g.type] && GARNISH_ART[g.type][variant];
     if (!art) return;
-    g.img.src = art.src;
+    g.img.src = ASSET(art.src);
+    g.img.dataset.art = art.src; /* logical path (src may be a blob: URL) */
     gsap.killTweensOf(g.img);
     var k = GLASS_ART_SCALE; /* config was measured for the 92px glass box */
     gsap.set(g.img, { position: 'absolute', left: art.left * k + 'px', top: art.top * k + 'px',
@@ -904,8 +947,8 @@
       gsap.delayedCall(1.1, function () {
         showTutMascot(TUT[5]); /* "Awesome! You are ready to serve everyone." */
       });
-      gsap.delayedCall(4.8, function () { hideTutMascot(); });
-      gsap.delayedCall(5.2, function () {
+      gsap.delayedCall(5.6, function () { hideTutMascot(); }); /* the spoken cheer runs ~5.6s in */
+      gsap.delayedCall(6.0, function () {
         state.firstServeDone = true; /* the cheer already played */
         state.locked = false;
         startRound();
@@ -1078,9 +1121,12 @@
        muted so the celebration always plays. */
     var winVideo = document.getElementById('win-bg');
     if (winVideo) {
+      /* three ways back to the title — 'ended', 'error', and a watchdog a
+         second past the ~4s clip — so the player can never get stuck here */
       winVideo.addEventListener('ended', returnToTitle, { once: true });
       SFX.stopMusic();
-      if (winVideo.play) {
+      var VIDEO_FILE = 'assets/img/endscreen.webm';
+      function playVideo() {
         try {
           winVideo.currentTime = 0;
           winVideo.muted = false;
@@ -1091,10 +1137,21 @@
             var p2 = winVideo.play();
             if (p2 && p2.catch) p2.catch(function () {});
           });
-        } catch (e) { /* poster stays as fallback */ }
+        } catch (e) { /* poster stays as fallback; the watchdog exits */ }
       }
-      /* safety net if the video can't autoplay or 'ended' never fires
-         (the celebration runs ~4s) */
+      /* prefer the preloaded local copy; if the blob somehow errors, fall
+         back to the real file once and resume playback */
+      winVideo.addEventListener('error', function () {
+        if (winVideo.getAttribute('src') !== VIDEO_FILE) {
+          winVideo.src = VIDEO_FILE;
+          winVideo.load();
+          playVideo();
+        }
+      }, { once: true });
+      var local = ASSET(VIDEO_FILE);
+      if (local !== VIDEO_FILE) winVideo.src = local;
+      playVideo();
+      /* watchdog: re-armed on every win screen */
       gsap.delayedCall(5.5, returnToTitle);
     } else {
       gsap.delayedCall(3.5, returnToTitle);
@@ -1112,16 +1169,26 @@
     if (/[?&]again\b/.test(location.search)) {
       playBtn.classList.add('again');
       var pImg = playBtn.querySelector('img');
-      pImg.src = 'assets/img/play-again.webp';
+      pImg.src = ASSET('assets/img/play-again.webp');
       pImg.alt = 'Play Again';
     }
-    /* the title pops once and stays still — only the play button pulses */
-    gsap.from(playBtn, { scale: 0, autoAlpha: 0, duration: 0.6, ease: 'back.out(2.2)', delay: 0.55 });
-    gsap.to(playBtn, { scale: 1.07, duration: 0.8, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 1.2 });
+    /* the Play button stays hidden behind the juice loading bar and pops in
+       only once EVERY asset is preloaded (the preloader can never stall —
+       failures count as done) */
+    window.PRELOAD.onReady(function () {
+      var wrap = document.getElementById('load-wrap');
+      gsap.to(wrap, { autoAlpha: 0, duration: 0.35, delay: 0.3,
+        onComplete: function () { wrap.style.display = 'none'; } });
+      gsap.set(playBtn, { visibility: 'visible' });
+      gsap.from(playBtn, { scale: 0, autoAlpha: 0, duration: 0.6, ease: 'back.out(2.2)', delay: 0.5 });
+      gsap.to(playBtn, { scale: 1.07, duration: 0.8, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 1.15 });
+    });
   }
 
-  playBtn.addEventListener('pointerdown', function () {
-    if (gameStarted) return;
+  function startGame() {
+    /* also guards keyboard (Enter/Space -> click) and programmatic starts:
+       nothing begins until the preload is done */
+    if (gameStarted || !window.PRELOAD.done) return;
     gameStarted = true;
     SFX.unlock();
     SFX.play('click');
@@ -1133,7 +1200,9 @@
         intro(); /* scene builds itself as the wave lifts */
       }, null);
     });
-  });
+  }
+  playBtn.addEventListener('pointerdown', startGame);
+  playBtn.addEventListener('click', startGame); /* keyboard Enter/Space */
 
   /* browsers only allow audio after a user gesture — unlock on the first one */
   document.addEventListener('pointerdown', function () { SFX.unlock(); }, { once: true });

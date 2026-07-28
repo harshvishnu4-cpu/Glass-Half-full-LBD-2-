@@ -6,21 +6,26 @@
   'use strict';
 
   var ctx = null, master = null, verb = null;
-  var muted = false, ambienceOn = false;
+  var ambienceOn = false;
   var music = null;
+  /* the preloader installs a resolver mapping asset paths to local blob:
+     URLs, so lazily-created Audio() elements never re-download */
+  var resolve = function (u) { return u; };
   var MUSIC_VOLUME = 0.07;   /* quiet bed so the SFX sit clearly on top */
   var SFX_VOLUME = 0.8;      /* effects well above the music */
 
+  /* All audio files are Ogg Opus — supported by Chrome/Edge/Firefox and
+     recent Safari (macOS/iOS 18.4+). */
   function startMusic() {
     if (music) return;
-    music = new Audio('audio/background.mp3');
+    music = new Audio(resolve('audio/background.ogg'));
     music.loop = true;
     music.volume = 0;
     var p = music.play();
     if (p && p.catch) p.catch(function () { music = null; }); /* retry on next gesture */
     var fade = setInterval(function () {
       if (!music) { clearInterval(fade); return; }
-      var target = muted ? 0 : MUSIC_VOLUME;
+      var target = MUSIC_VOLUME;
       music.volume = Math.min(target, music.volume + 0.015);
       if (music.volume >= target) clearInterval(fade);
     }, 90);
@@ -35,7 +40,7 @@
     if (!AC) return false;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = muted ? 0 : SFX_VOLUME;
+    master.gain.value = SFX_VOLUME;
     master.connect(ctx.destination);
     /* generated impulse response = cheap ghostly hall */
     verb = ctx.createConvolver();
@@ -255,12 +260,12 @@
     o.start(when); o.stop(when + dur + 0.05);
   }
 
-  /* sample-based cues (mp3 files); cloned per play so they can overlap */
+  /* sample-based cues (ogg files); cloned per play so they can overlap */
   var samples = {};
   function playSample(name, vol) {
     var base = samples[name];
     if (!base) {
-      base = new Audio('audio/' + name + '.mp3');
+      base = new Audio(resolve('audio/' + name + '.ogg'));
       base.preload = 'auto';
       samples[name] = base;
     }
@@ -268,6 +273,18 @@
     inst.volume = vol;
     var p = inst.play();
     if (p && p.catch) p.catch(function () { /* not unlocked yet */ });
+  }
+
+  /* recorded voice-over lines (ogg); only one speaks at a time */
+  var voiceClips = {}, voiceNow = null;
+  function getVoice(src) {
+    var v = voiceClips[src];
+    if (!v) {
+      v = new Audio(resolve(src));
+      v.preload = 'auto';
+      voiceClips[src] = v;
+    }
+    return v;
   }
 
   /* ---------- cues ---------- */
@@ -394,7 +411,7 @@
 
     (function owl() {
       setTimeout(function () {
-        if (ctx && !muted) {
+        if (ctx) {
           var t = ctx.currentTime;
           ghost(392, 340, 0.32, t, 0.035);
           ghost(370, 320, 0.4, t + 0.45, 0.03);
@@ -407,6 +424,8 @@
   /* ---------- public API ---------- */
 
   window.SFX = {
+    /* the preloader points this at its blob-URL map */
+    setResolver: function (fn) { resolve = fn; },
     /* call from a user gesture: creates/resumes the context,
        starts the ambience and the background music */
     unlock: function () {
@@ -416,9 +435,22 @@
       }
     },
     play: function (name) {
-      if (muted || !ensure() || !cues[name]) return;
+      if (!ensure() || !cues[name]) return;
       cues[name](ctx.currentTime);
     },
+    /* speak a recorded voice-over line, cutting off the previous one */
+    voice: function (src) {
+      if (voiceNow) voiceNow.pause();
+      var v = getVoice(src);
+      voiceNow = v;
+      v.currentTime = 0;
+      v.volume = 1;
+      var p = v.play();
+      if (p && p.catch) p.catch(function () { /* not unlocked yet */ });
+    },
+    voicePlaying: function () { return !!(voiceNow && !voiceNow.paused && !voiceNow.ended); },
+    /* warm the browser cache so the first line speaks without a hitch */
+    preloadVoices: function (list) { list.forEach(getVoice); },
     /* fade the background music out (e.g. so the end-screen video's own
        audio can take the stage) */
     stopMusic: function () {
@@ -430,16 +462,6 @@
         if (m.volume <= 0) { clearInterval(fade); m.pause(); }
       }, 60);
     },
-    toggleMute: function () {
-      muted = !muted;
-      if (master) {
-        master.gain.cancelScheduledValues(ctx.currentTime);
-        master.gain.linearRampToValueAtTime(muted ? 0 : SFX_VOLUME, ctx.currentTime + 0.15);
-      }
-      if (music) music.volume = muted ? 0 : MUSIC_VOLUME;
-      return muted;
-    },
-    isMuted: function () { return muted; },
     musicPlaying: function () { return !!(music && !music.paused); }
   };
 })();
