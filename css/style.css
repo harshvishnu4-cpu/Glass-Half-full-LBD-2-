@@ -259,9 +259,15 @@ img { user-select: none; -webkit-user-drag: none; }
   position: absolute;
   left: 0; top: 0;
   z-index: 400;
-  opacity: 0.65;
+  /* Reads as a guiding phantom, not a grubby duplicate. At 65% opacity the
+     glass art blended with whatever sat behind it — muddy grey over the
+     night sky, washed-out over the red tray — and a black drop-shadow made
+     it dirtier still. It is now kept nearly opaque (the timeline drives the
+     actual value) and ringed with a warm glow instead. */
+  opacity: 0;
   pointer-events: none;
-  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(0 0 9px rgba(255, 226, 140, 0.95))
+          drop-shadow(0 0 22px rgba(255, 198, 60, 0.55));
   will-change: transform;
 }
 

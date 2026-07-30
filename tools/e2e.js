@@ -85,6 +85,10 @@ function expect(label, actual, wanted) {
   await dragTo(0, '#zone-empty');
   expect('tutorial glass placed', await placed(), 1);
   await page.waitForFunction(() => !document.querySelector('.glass-ghost'), { timeout: 5000 });
+  // the demo dims its source glass; interrupting it must always restore them
+  await sleep(400);
+  expect('no glass left dimmed by the ghost demo', await page.evaluate(() =>
+    window.__game.glasses.every((g) => +getComputedStyle(g.img).opacity > 0.95)), true);
 
   // wrong drops escalate: glass 1 is half full; the Full tray rejects it.
   // 1st miss — just the shake: no dialogue, no glow, no ghost demo

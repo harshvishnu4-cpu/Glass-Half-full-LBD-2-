@@ -271,7 +271,9 @@
       SFX.play('pickup');
       gsap.to(g.el, { scale: 1.08, duration: 0.18, ease: 'power2.out' });
       gsap.killTweensOf(g.img);
-      gsap.to(g.img, { rotation: 0, scale: 1, duration: 0.2 });
+      /* autoAlpha too: this kill would otherwise wipe out the fade-back that
+         stopHandDemo just started, stranding a demoed glass half-faded */
+      gsap.to(g.img, { rotation: 0, scale: 1, autoAlpha: 1, duration: 0.2 });
     });
 
     g.el.addEventListener('pointermove', function (e) {
@@ -505,10 +507,11 @@
 
   /* a translucent "ghost" of the glass lifts and glides to its tray, on a
      loop, so the player sees the glass is draggable and where it goes */
-  var ghostTl = null, ghostGlassEl = null;
+  var ghostTl = null, ghostGlassEl = null, ghostGlass = null;
 
   function startHandDemo(g) {
     stopHandDemo();
+    ghostGlass = g;
     var spec = GLASS_TYPES[g.type];
     ghostGlassEl = document.createElement('img');
     ghostGlassEl.src = ASSET(spec.src);
@@ -527,17 +530,28 @@
     gsap.set(ghostGlassEl, { x: fromX, y: fromY, scale: 1, autoAlpha: 0, transformOrigin: '50% 100%' });
     ghostTl = gsap.timeline({ repeat: -1, repeatDelay: 0.75 });
     ghostTl
-      .to(ghostGlassEl, { autoAlpha: 0.65, duration: 0.3 })                       /* appears */
+      /* the phantom takes over from the real glass on the spot — the glass
+         dims to a faint outline as the phantom brightens, so the demo reads
+         as the glass itself lifting rather than a copy sliding out from
+         behind it — and the glass brightens again as the phantom lands */
+      .to(ghostGlassEl, { autoAlpha: 0.95, duration: 0.32 })
+      .to(g.img, { autoAlpha: 0.3, duration: 0.32 }, '<')
       .to(ghostGlassEl, { y: fromY - 34, scale: 1.08, duration: 0.32, ease: 'power2.out' }) /* picked up */
       .to(ghostGlassEl, { x: toX, keyframes: { y: [fromY - 34, midY, toY] },
         duration: 1.1, ease: 'power1.inOut' })                                    /* dragged to tray */
       .to(ghostGlassEl, { scale: 1, duration: 0.16, ease: 'power1.in' })          /* set down */
-      .to(ghostGlassEl, { autoAlpha: 0, duration: 0.3 });                         /* released, fades */
+      .to(ghostGlassEl, { autoAlpha: 0, duration: 0.32 })                         /* released, fades */
+      .to(g.img, { autoAlpha: 1, duration: 0.32 }, '<');
   }
 
   function stopHandDemo() {
     if (ghostTl) { ghostTl.kill(); ghostTl = null; }
     if (ghostGlassEl) { ghostGlassEl.remove(); ghostGlassEl = null; }
+    /* whatever the loop was mid-way through, the real glass comes back */
+    if (ghostGlass) {
+      gsap.to(ghostGlass.img, { autoAlpha: 1, duration: 0.2, overwrite: 'auto' });
+      ghostGlass = null;
+    }
   }
 
   /* spotlight one empty glass AND its matching (empty) tray — fired the moment
@@ -551,7 +565,9 @@
     var g = state.hintGlass;
     if (!g) return;
     g.el.classList.add('highlight');
-    gsap.to(g.img, { scale: 1.16, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    /* same gentle 1.12 peak the miss hints use — a bigger one made this glass
+       balloon out of the row and read as the odd one out */
+    gsap.to(g.img, { scale: 1.12, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
     hintZone('empty');  /* the empty tray's plate glows together with the glass */
   }
 
