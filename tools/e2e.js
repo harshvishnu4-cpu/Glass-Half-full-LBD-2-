@@ -79,16 +79,39 @@ function expect(label, actual, wanted) {
   // the game stays locked until Agni's tutorial dialogue finishes
   await page.waitForFunction(() => window.__game.locked === false, { timeout: 25000 });
 
-  // 1. wrong drop: glass 1 is half full; the Full tray must reject it
+  // 1. place the tutorial's spotlighted empty glass first — that ends the
+  // guided hint (glow + ghost demo), leaving a clean stage for the
+  // escalation checks below
+  await dragTo(0, '#zone-empty');
+  expect('tutorial glass placed', await placed(), 1);
+  await page.waitForFunction(() => !document.querySelector('.glass-ghost'), { timeout: 5000 });
+
+  // wrong drops escalate: glass 1 is half full; the Full tray rejects it.
+  // 1st miss — just the shake: no dialogue, no glow, no ghost demo
   await dragTo(1, '#zone-full', { shotDuringDrag: '1-dragging.png' });
   await sleep(400); // return-home tween
-  expect('placed after wrong drop', await placed(), 0);
-  // a second miss in a row must trigger Agni's type-specific hint
+  expect('placed after wrong drop', await placed(), 1);
+  expect('no hint after 1st wrong attempt', await page.evaluate(() =>
+    !document.getElementById('tut-mascot-text').textContent.includes('This glass is half full') &&
+    !document.querySelector('.glass.highlight') && !document.querySelector('.glass-ghost') &&
+    !document.querySelector('.tray-glow.on')), true);
+  // 2nd miss — Agni's type-specific line appears, but still no visual aids
   await dragTo(1, '#zone-full');
   await page.waitForFunction(
     () => document.getElementById('tut-mascot-text').textContent.includes('This glass is half full'),
     { timeout: 8000 });
-  expect('hint after two wrong attempts', true, true);
+  expect('dialogue after 2nd wrong attempt', true, true);
+  // ...together with the glass pulsing, but no tray light and no ghost demo yet
+  expect('glass pulses after 2nd wrong attempt', await page.evaluate(() =>
+    !!document.querySelector('.glass.highlight')), true);
+  expect('no tray light / ghost demo after 2nd wrong attempt', await page.evaluate(() =>
+    !document.querySelector('.glass-ghost') && !document.querySelector('.tray-glow.on')), true);
+  // 3rd miss — the tray lights up and the ghost glass demos the move as well
+  await dragTo(1, '#zone-full');
+  await page.waitForFunction(
+    () => document.querySelector('.glass.highlight') && document.querySelector('.glass-ghost') &&
+      document.querySelector('#glow-half.on'), { timeout: 8000 });
+  expect('lit tray + ghost demo after 3rd wrong attempt', true, true);
   await page.screenshot({ path: path.join(SHOTS, '2-after-reject.png') });
 
   // 2. sort everything correctly

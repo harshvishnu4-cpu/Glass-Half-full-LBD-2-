@@ -29,6 +29,13 @@
 
       <div id="sky-sparkles"></div>
 
+      <!-- per-tray highlight art: the same trays cut out with alpha, laid
+           exactly over the scene layer so the tutorial hint can glow along
+           each tray's real silhouette (hidden until a hint calls for it) -->
+      <img class="tray-glow" id="glow-empty" src="assets/img/tray-empty.webp" alt="">
+      <img class="tray-glow" id="glow-half"  src="assets/img/tray-half.webp"  alt="">
+      <img class="tray-glow" id="glow-full"  src="assets/img/tray-full.webp"  alt="">
+
       <!-- Drop zones (invisible; glow while a glass hovers over them) -->
       <div class="tray-zone" id="zone-empty" data-type="empty"></div>
       <div class="tray-zone" id="zone-half"  data-type="half"></div>

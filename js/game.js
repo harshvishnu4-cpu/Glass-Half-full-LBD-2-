@@ -74,6 +74,12 @@
     half: document.getElementById('plaque-half'),
     full: document.getElementById('plaque-full')
   };
+  /* cut-out tray art laid over the scene layer, lit up for hints */
+  var trayGlowEls = {
+    empty: document.getElementById('glow-empty'),
+    half: document.getElementById('glow-half'),
+    full: document.getElementById('glow-full')
+  };
 
   var stageScale = 1;
   /* dragged glasses live in the 500+ z range, placed ones around 100-200,
@@ -318,6 +324,14 @@
     }
     state.wrongStreak = 0;
     clearZoneHints();
+    /* a correct drop resets the streak, so any glass still pulsing from an
+       earlier miss settles back down */
+    state.glasses.forEach(function (o) {
+      if (o.placed) return;
+      o.el.classList.remove('highlight');
+      gsap.killTweensOf(o.img, 'scale');
+      gsap.to(o.img, { scale: 1, duration: 0.25, overwrite: 'auto' });
+    });
 
     var tray = TRAYS[g.type];
     var slotIndex = tray.count;
@@ -475,22 +489,19 @@
     state.tutTimers = [];
   }
 
-  /* glowing-tray hints (also used after two wrong attempts in a row) */
+  /* glowing-tray hints (also used after three wrong attempts in a row) */
   function hintZone(type) {
-    /* the target tray's brass plate glows and pulses — the rest of the
+    /* the target tray itself lights up and pulses — the rest of the
        scene stays exactly as it is */
-    plaqueEls[type].classList.add('glow');
-    gsap.to(plaqueEls[type], { scale: 1.1, duration: 0.7, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    if (trayGlowEls[type]) trayGlowEls[type].classList.add('on');
   }
 
   function clearZoneHints() {
     stopHandDemo();
     for (var k in zoneEls) {
+      if (trayGlowEls[k]) trayGlowEls[k].classList.remove('on');
       gsap.killTweensOf(zoneEls[k]);
       gsap.to(zoneEls[k], { opacity: 0, duration: 0.25, overwrite: 'auto' });
-      plaqueEls[k].classList.remove('glow');
-      gsap.killTweensOf(plaqueEls[k], 'scale');
-      gsap.to(plaqueEls[k], { scale: 1, duration: 0.25, overwrite: 'auto' });
     }
   }
 
@@ -801,9 +812,9 @@
   function showServeFeedback(c) {
     serveBubble.textContent = SERVE_LINES[Math.floor(Math.random() * SERVE_LINES.length)];
     gsap.killTweensOf(serveBubble);
-    /* the box art's tail sits at ~94% of its width (bottom-right corner), so
-       shift the bubble left until the tail points at the customer's head */
-    gsap.set(serveBubble, { visibility: 'visible', left: SERVE_X + 'px', xPercent: -94, transformOrigin: '94% 100%' });
+    /* the box art's tail hangs from the bottom at 54% of its width, so shift
+       the bubble left until that point sits over the customer's head */
+    gsap.set(serveBubble, { visibility: 'visible', left: SERVE_X + 'px', xPercent: -54, transformOrigin: '54% 100%' });
     gsap.fromTo(serveBubble, { autoAlpha: 0, scale: 0.3, y: 22 },
       { autoAlpha: 1, scale: 1, y: 0, duration: 0.4, ease: 'back.out(2.4)' });
     SFX.play('happy');
@@ -825,6 +836,14 @@
     });
   }
 
+  /* a single glass glows and gently pulses to draw the eye to it */
+  function pulseGlass(g) {
+    g.el.classList.add('highlight');
+    gsap.killTweensOf(g.img, 'scale');
+    gsap.fromTo(g.img, { scale: 1 },
+      { scale: 1.12, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+  }
+
   function clearServeHint() {
     state.glasses.forEach(function (g) {
       g.el.classList.remove('highlight');
@@ -841,7 +860,8 @@
       duration: 0.55, ease: 'power1.out'
     });
     gsap.to(state.active.el, { keyframes: { rotation: [-4, 4, -3, 3, 0] }, duration: 0.5 });
-    /* two misses in a row: pulse the right glasses and name the order */
+    /* help escalates with the miss streak: 1st — just the shake;
+       2nd+ — the glasses matching the order pulse while Agni names it */
     state.wrongStreak += 1;
     if (state.wrongStreak >= 2) {
       hintServe();
@@ -879,7 +899,7 @@
     Object.keys(GARNISH_ART).forEach(function (t) {
       Object.keys(GARNISH_ART[t]).forEach(function (v) { new Image().src = ASSET(GARNISH_ART[t][v].src); });
     });
-    ['assets/img/bubble-half.webp', 'assets/img/bubble-full.webp', 'assets/img/side-bubble.webp']
+    ['assets/img/bubble-half.webp', 'assets/img/bubble-full.webp']
       .forEach(function (src) { new Image().src = ASSET(src); });
     SFX.preloadVoices(Object.keys(VO).map(function (t) { return VO[t]; }));
   });
@@ -984,15 +1004,20 @@
 
   function rejectGlass(g) {
     SFX.play('wrong');
-    /* two misses in a row: the glass and its tray's brass plate glow, and a
-       ghost glass demos the correct move — the scene itself stays bright */
+    /* help escalates with the miss streak:
+       1st miss  — just the shake, no hint;
+       2nd miss  — the glass glows and pulses while Agni names it;
+       3rd miss+ — the correct tray lights up and a ghost glass demos the
+                   move as well (the scene itself stays bright) */
     state.wrongStreak += 1;
     if (state.wrongStreak >= 2) {
+      pulseGlass(g);
+      agniSays('This glass is ' + TYPE_NAMES[g.type] + '. Put it in the correct tray.');
+    }
+    if (state.wrongStreak >= 3) {
       clearZoneHints();
       hintZone(g.type);
-      g.el.classList.add('highlight');
       startHandDemo(g);
-      agniSays('This glass is ' + TYPE_NAMES[g.type] + '. Put it in the correct tray.');
     }
     var cx = gsap.getProperty(g.el, 'x');
     gsap.timeline({ onComplete: function () { returnHome(g); } })

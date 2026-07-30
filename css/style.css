@@ -88,6 +88,45 @@ img { user-select: none; -webkit-user-drag: none; }
   background: radial-gradient(closest-side, rgba(255, 214, 92, 0.30), rgba(255, 214, 92, 0));
   pointer-events: none;
 }
+/* hint: the target tray itself lights up — the cut-out tray art fades in
+   over the scene layer and pulses with a golden halo that follows the
+   tray's silhouette (a CSS animation, so the drag-hover opacity tweens on
+   .tray-zone can never cancel it) */
+.tray-glow {
+  position: absolute;
+  z-index: 5;              /* above the tray scene layer, below the glasses */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  /* fade in and out gently; the visibility flip waits for the fade so the
+     layer is still released once the hint is over */
+  transition: opacity 0.4s ease, visibility 0s linear 0.4s;
+}
+#glow-empty { left: 78px;   top: 750px; width: 555px; }
+#glow-half  { left: 672px;  top: 750px; width: 570px; }
+#glow-full  { left: 1289px; top: 750px; width: 561px; }
+.tray-glow.on {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.4s ease, visibility 0s linear 0s;
+  /* slow, even breath; both keyframes list the SAME filter functions in the
+     same order so the browser interpolates them continuously (a mismatched
+     list makes the filter snap halfway through, which reads as a flicker) */
+  animation: trayLight 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+  will-change: filter;
+}
+@keyframes trayLight {
+  from {
+    filter: drop-shadow(0 0 5px rgba(255, 214, 92, 0.35))
+            drop-shadow(0 0 14px rgba(255, 198, 60, 0.2))
+            brightness(1.02) saturate(1.02);
+  }
+  to {
+    filter: drop-shadow(0 0 18px rgba(255, 226, 130, 0.9))
+            drop-shadow(0 0 42px rgba(255, 198, 60, 0.62))
+            brightness(1.16) saturate(1.1);
+  }
+}
 #zone-empty { left: 90px;   top: 700px; width: 550px; height: 365px; }
 #zone-half  { left: 672px;  top: 700px; width: 578px; height: 365px; }
 #zone-full  { left: 1290px; top: 700px; width: 550px; height: 365px; }
@@ -124,12 +163,6 @@ img { user-select: none; -webkit-user-drag: none; }
   pointer-events: none;
 }
 .plaque span { font-size: 65px; color: #972129; line-height: 1; }
-/* hint: the brass name plate of the target tray glows brightly */
-.plaque.glow { animation: plaqueGlow 0.7s ease-in-out infinite alternate; }
-@keyframes plaqueGlow {
-  from { filter: drop-shadow(0 0 4px rgba(255, 215, 94, 0.45)) brightness(1); }
-  to   { filter: drop-shadow(0 0 32px rgba(255, 215, 94, 1)) brightness(1.3); }
-}
 #plaque-empty { left: 160px;  top: 968px; }
 #plaque-half  { left: 773px;  top: 969px; }
 #plaque-full  { left: 1405px; top: 969px; }
@@ -147,11 +180,13 @@ img { user-select: none; -webkit-user-drag: none; }
   will-change: transform;
 }
 
-/* designed order bubble (half/full glass artwork, tail points down-right) */
+/* designed order bubble (half/full glass artwork, tail points down-right);
+   sits snug at the customer's head — every customer's head top is y=305,
+   centred on the serve spot (x=960) — so the tail tip touches the head */
 #demand-bubble {
   position: absolute;
   z-index: 9;
-  left: 605px; top: 168px;
+  left: 705px; top: 78px;
   width: 185px;
   transform-origin: 85% 95%;
   opacity: 0;
@@ -167,22 +202,26 @@ img { user-select: none; -webkit-user-drag: none; }
   to   { filter: drop-shadow(0 0 26px rgba(255, 215, 94, 1)); }
 }
 
-/* customer thank-you bubble — the side-character speech box: it sits up-left
-   of the customer with its tail (bottom-right corner) pointing at their head */
+/* customer thank-you bubble — the same comic speech box Agni uses, sized
+   down for the customers. Its tail hangs from the bottom at 54% of the
+   width, so JS centres that point over the customer's head. Padding keeps
+   the text inside the cream body, clear of the border and the tail. */
 #serve-bubble {
   position: absolute;
   z-index: 9;
-  top: 128px;
-  width: 240px;
-  height: 200px;
+  /* floats clear of the head — the tail points down at it rather than
+     resting on it (the tallest customers' ears reach ~y=310) */
+  top: 104px;
+  width: 260px;
+  height: 196px;      /* the box art is 416x314 — same 1.32 aspect */
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: url('../assets/img/side-bubble.webp') center / 100% 100% no-repeat;
-  padding: 18px 26px 46px;
-  font-size: 34px;
-  line-height: 1.12;
+  background: url('../assets/img/tut-bubble.webp') center top / 100% 100% no-repeat;
+  padding: 18px 24px 38px;
+  font-size: 28px;
+  line-height: 1.15;
   color: #000;
   text-align: center;
   text-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
