@@ -89,6 +89,9 @@ function expect(label, actual, wanted) {
   await sleep(400);
   expect('no glass left dimmed by the ghost demo', await page.evaluate(() =>
     window.__game.glasses.every((g) => +getComputedStyle(g.img).opacity > 0.95)), true);
+  // ...and sitting idle brings the demo back (the ~9s inactivity nudge)
+  await page.waitForFunction(() => document.querySelector('.glass-ghost'), { timeout: 13000 });
+  expect('idle nudge replays the ghost demo', true, true);
 
   // wrong drops escalate: glass 1 is half full; the Full tray rejects it.
   // 1st miss — just the shake: no dialogue, no glow, no ghost demo
@@ -126,6 +129,9 @@ function expect(label, actual, wanted) {
 
   // 3. phase 2: dress the drinks FIRST, then customers arrive to order
   await page.waitForFunction(() => window.__game.phase === 2, { timeout: 15000 });
+  // no phantom glass may survive the scene swap into level 2
+  expect('no orphan ghost after phase switch', await page.evaluate(
+    () => !document.querySelector('.glass-ghost')), true);
   // the garnish boxes glow once the trays are ready to be dressed
   await page.waitForFunction(
     () => document.getElementById('lemonbox').classList.contains('nudge-glow'), { timeout: 15000 });
@@ -183,6 +189,10 @@ function expect(label, actual, wanted) {
 
   await sleep(2600); // win overlay + confetti
   await page.screenshot({ path: path.join(SHOTS, '4-win.png') });
+  // every hint/nudge must be switched off on the win screen
+  expect('all hints cleared at the win screen', await page.evaluate(() =>
+    !document.querySelector('.tray-glow.on') && !document.querySelector('.glass-ghost') &&
+    !document.querySelector('.nudge-glow')), true);
   expect('win overlay visible', await page.evaluate(() => {
     const s = getComputedStyle(document.getElementById('win-overlay'));
     return s.visibility === 'visible' && parseFloat(s.opacity) > 0.9;

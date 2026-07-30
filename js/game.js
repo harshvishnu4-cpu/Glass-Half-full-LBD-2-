@@ -120,7 +120,7 @@
     glasses: [], placed: 0, topZ: 500, locked: false,
     phase: 1, served: 0, demand: null, active: null,
     demandQueue: [],
-    firstSortDone: false, firstServeDone: false, tutTimers: [],
+    firstSortDone: false, tutTimers: [],
     wrongStreak: 0, coins: 0, hintGlass: null,
     strawTapped: false, lemonTapped: false, traysCentered: false
   };
@@ -241,10 +241,23 @@
     return null;
   }
 
+  /* Hover feedback while dragging. pointermove fires dozens of times a
+     second, so only retween when the hovered target actually changes —
+     rebuilding these tweens every event was the most expensive thing
+     happening during a drag. */
+  var hoverZone = null, hoverCustomer = false;
   function highlightZone(key) {
+    if (key === hoverZone) return;
+    hoverZone = key;
     for (var k in zoneEls) {
       gsap.to(zoneEls[k], { opacity: k === key ? 1 : 0, duration: 0.2, overwrite: 'auto' });
     }
+  }
+
+  function highlightCustomer(on) {
+    if (on === hoverCustomer) return;
+    hoverCustomer = on;
+    gsap.to(zoneCustomer, { opacity: on ? 1 : 0, duration: 0.2, overwrite: 'auto' });
   }
 
   function makeDraggable(g) {
@@ -281,8 +294,7 @@
       g.setX(g.drag.ox + (e.clientX - g.drag.px) / stageScale);
       g.setY(g.drag.oy + (e.clientY - g.drag.py) / stageScale);
       if (state.phase === 2) {
-        var over = state.demand && customerHit(glassCenter(g));
-        gsap.to(zoneCustomer, { opacity: over ? 1 : 0, duration: 0.2, overwrite: 'auto' });
+        highlightCustomer(!!(state.demand && customerHit(glassCenter(g))));
       } else {
         highlightZone(zoneAt(glassCenter(g)));
       }
@@ -293,7 +305,7 @@
       g.drag = null;
       g.el.classList.remove('dragging');
       highlightZone(null);
-      gsap.to(zoneCustomer, { opacity: 0, duration: 0.2, overwrite: 'auto' });
+      highlightCustomer(false);
       if (state.phase === 2) {
         var overCust = state.demand && customerHit(glassCenter(g));
         if (overCust && g.type === state.demand) serveGlass(g);
@@ -383,14 +395,20 @@
   /* ---------- inactivity nudge ----------
      if the player goes quiet for ~9s while the game is waiting on them,
      Agni gently reminds them what to do (and repeats if they stay idle) */
-  var idleCall = null;
+  var idleCall = null, idleWatch = false;
   function armIdleNudge() {
+    if (!idleWatch) return; /* nothing to nudge on the title or win screen */
     if (idleCall) idleCall.kill();
     idleCall = gsap.delayedCall(9, idleNudge);
   }
+  function startIdleWatch() { idleWatch = true; armIdleNudge(); }
+  function stopIdleWatch() {
+    idleWatch = false;
+    if (idleCall) { idleCall.kill(); idleCall = null; }
+  }
   function idleNudge() {
     armIdleNudge(); /* keep watching — nudge again if they stay idle */
-    if (!gameStarted || state.locked) return;
+    if (state.locked) return;
     if (state.phase === 1) {
       /* quiet visual nudge: a ghost glass demos the next move (skip if a
          demo is already running from the tutorial or a wrong-drop hint) */
@@ -404,7 +422,6 @@
     /* garnish step needs nothing extra — the untapped boxes already glow */
   }
   document.addEventListener('pointerdown', armIdleNudge);
-  armIdleNudge();
 
   /* the question bar carries every line of guidance (design node 670:18) */
   var qbar = document.getElementById('qbar');
@@ -498,6 +515,7 @@
 
   function clearZoneHints() {
     stopHandDemo();
+    hoverZone = null; /* these zones are being faded out behind highlightZone's back */
     for (var k in zoneEls) {
       if (trayGlowEls[k]) trayGlowEls[k].classList.remove('on');
       gsap.killTweensOf(zoneEls[k]);
@@ -669,6 +687,7 @@
     state.phase = 2;
     splashTransition(function () {
       /* the wave hides the whole swap */
+      stopHandDemo(); /* never leave a phantom looping over the new scene */
       state.glasses.forEach(function (g) {
         gsap.killTweensOf(g.el);
         gsap.killTweensOf(g.img);
@@ -782,21 +801,11 @@
 
   function serveGlass(g) {
     g.placed = true;
-    var demanded = state.demand;
     state.demand = null; /* close the round */
     state.served += 1;
     hideDemandBubble();
     state.wrongStreak = 0;
     clearServeHint();
-
-    /* first successful serve: Agni cheers, then steps aside for free play */
-    if (!state.firstServeDone) {
-      state.firstServeDone = true;
-      gsap.delayedCall(0.8, function () {
-        showTutMascot(TUT[5]); /* Agni: "Awesome! You are ready to serve everyone." */
-      });
-      gsap.delayedCall(5.5, function () { hideTutMascot(); }); /* let the spoken cheer finish */
-    }
 
     var c = state.active;
     var tx = SERVE_X - (g.x + g.w / 2);
@@ -886,6 +895,7 @@
 
   function finalWin() {
     state.locked = true;
+    stopIdleWatch();
     hideDemandBubble();
     stopGarnishNudge();
     SFX.play('kaching'); /* the till rings: all customers paid! */
@@ -983,7 +993,6 @@
       });
       gsap.delayedCall(5.6, function () { hideTutMascot(); }); /* the spoken cheer runs ~5.6s in */
       gsap.delayedCall(6.0, function () {
-        state.firstServeDone = true; /* the cheer already played */
         state.locked = false;
         startRound();
       });
@@ -1250,6 +1259,7 @@
 
   function intro() {
     state.locked = true; /* no dragging until Agni finishes the tutorial */
+    startIdleWatch();    /* only now is there anything to be idle at */
     var tl = gsap.timeline();
     tl.from('#trays', { y: 220, autoAlpha: 0, duration: 0.7, ease: 'power3.out' }, 0.2)
       .from([plaqueEls.empty, plaqueEls.half, plaqueEls.full],
