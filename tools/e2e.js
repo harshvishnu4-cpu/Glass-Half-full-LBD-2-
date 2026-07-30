@@ -1,4 +1,4 @@
-// End-to-end gameplay test: drives the real game in headless Edge with
+﻿// End-to-end gameplay test: drives the real game in headless Edge with
 // trusted pointer input. Verifies wrong-drop rejection, all 12 placements,
 // the win overlay, and replay. Screenshots land in tools/e2e-shots/.
 const puppeteer = require('puppeteer-core');
@@ -92,13 +92,13 @@ function expect(label, actual, wanted) {
   await sleep(400); // return-home tween
   expect('placed after wrong drop', await placed(), 1);
   expect('no hint after 1st wrong attempt', await page.evaluate(() =>
-    !document.getElementById('tut-mascot-text').textContent.includes('This glass is half full') &&
+    !document.getElementById('qbar-text').textContent.includes('This glass is half full') &&
     !document.querySelector('.glass.highlight') && !document.querySelector('.glass-ghost') &&
     !document.querySelector('.tray-glow.on')), true);
   // 2nd miss — Agni's type-specific line appears, but still no visual aids
   await dragTo(1, '#zone-full');
   await page.waitForFunction(
-    () => document.getElementById('tut-mascot-text').textContent.includes('This glass is half full'),
+    () => document.getElementById('qbar-text').textContent.includes('This glass is half full'),
     { timeout: 8000 });
   expect('dialogue after 2nd wrong attempt', true, true);
   // ...together with the glass pulsing, but no tray light and no ghost demo yet

@@ -230,38 +230,28 @@ img { user-select: none; -webkit-user-drag: none; }
   pointer-events: none;
 }
 
-/* Agni the dragon stands bottom-right and speaks all guidance */
-#tut-mascot { position: absolute; inset: 0; z-index: 9; pointer-events: none; visibility: hidden; }
-/* full-body Agni, scaled down ~22% from the Figma box (was 1295,344 · 822x967)
-   and re-anchored so his head stays near the speech bubble */
-#tut-mascot-img {
+/* question bar — all guidance is spoken here (Figma node 670:18). Every
+   coordinate is the design's own, offset by the bar frame's x=32 origin. */
+#qbar {
   position: absolute;
-  /* fully inside the 1920px stage so his wing never gets clipped mid-screen */
-  left: 1279px; top: 400px;
-  width: 641px; height: 754px;
-  filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.45));
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  visibility: hidden;
 }
-/* comic bubble — uses the supplied speech-box artwork; its tail (~54% from the
-   left) is anchored over the dragon. Fixed width so the tail stays put; height
-   grows with the text (JS locks it per line). Padding keeps the text inside the
-   cream body, clear of the border and the downward tail. */
-#tut-mascot-bubble {
+#qbar-bg    { position: absolute; left: 129px; top: 49px; width: 1757px; height: 117px; }
+#qbar-frame { position: absolute; left: 58px;  top: 20px; width: 169px;  height: 169px; }
+#qbar-agni  { position: absolute; left: 75px;  top: 46px; width: 134px;  height: 118px; }
+#qbar-text {
   position: absolute;
-  right: 77px; top: 134px;
-  width: 340px;
-  height: 260px;
-  box-sizing: border-box;
+  left: 257px; top: 56px;
+  width: 1636px; height: 98px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: url('../assets/img/tut-bubble.webp') center top / 100% 100% no-repeat;
-  padding: 24px 32px 50px;
-  font-size: 34px;
-  line-height: 1.18;
-  font-weight: normal;
-  color: #000;
-  text-align: center;
-  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
+  align-items: center;          /* the design centres the line in its box */
+  font-size: 46px;
+  line-height: normal;
+  color: #fff;
+  text-shadow: 0 2.902px 0 #844a08;
 }
 
 /* tutorial: a translucent ghost of the glass drags itself to the tray */

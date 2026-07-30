@@ -404,11 +404,12 @@
   document.addEventListener('pointerdown', armIdleNudge);
   armIdleNudge();
 
-  /* full-body Agni + speech bubble for the guided tutorial (design node 670-2) */
-  var tutMascot = document.getElementById('tut-mascot');
-  var tutMascotImg = document.getElementById('tut-mascot-img');
-  var tutMascotBubble = document.getElementById('tut-mascot-bubble');
-  var tutMascotText = document.getElementById('tut-mascot-text');
+  /* the question bar carries every line of guidance (design node 670:18) */
+  var qbar = document.getElementById('qbar');
+  var qbarBg = document.getElementById('qbar-bg');
+  var qbarFrame = document.getElementById('qbar-frame');
+  var qbarAgni = document.getElementById('qbar-agni');
+  var tutMascotText = document.getElementById('qbar-text');
   var tutMascotIn = false;
   var typeCall = null;
   var voCall = null, lineVoiced = false;
@@ -450,38 +451,35 @@
     if (!tutMascotIn) {
       tutMascotIn = true;
       SFX.play('ask');
-      /* Agni strolls in from the right and speaks */
-      gsap.set(tutMascot, { visibility: 'visible' });
-      gsap.fromTo(tutMascotImg, { x: 380, autoAlpha: 0 },
-        { x: 0, autoAlpha: 1, duration: 0.6, ease: 'power3.out' });
-      gsap.fromTo(tutMascotBubble, { autoAlpha: 0, scale: 0.3 },
-        { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'back.out(2)', delay: 0.35, transformOrigin: '54% 100%' });
-      speakLine(text, 0.7);
-      typewrite(text, 0.7, onDone); /* start typing once the bubble has popped in */
+      /* the bar drops in from off the top of the stage, then speaks */
+      gsap.set(qbar, { visibility: 'visible' });
+      gsap.fromTo([qbarBg, qbarFrame, qbarAgni, tutMascotText],
+        { y: -210, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.55, ease: 'power3.out' });
+      speakLine(text, 0.6);
+      typewrite(text, 0.6, onDone); /* start typing once the bar has settled */
     } else {
-      /* already on screen — pop the bubble and retype the new line */
+      /* already on screen — Agni's portrait pops and the new line types in */
       SFX.play('ask');
-      gsap.fromTo(tutMascotBubble, { scale: 0.9 },
-        { scale: 1, duration: 0.3, ease: 'back.out(2.4)', transformOrigin: '54% 100%' });
       speakLine(text, 0.2);
       typewrite(text, 0.2, onDone);
     }
-    /* friendly gesture wiggle */
-    gsap.fromTo(tutMascotImg, { rotation: -2 },
-      { rotation: 2, duration: 0.14, yoyo: true, repeat: 3, ease: 'sine.inOut',
-        onComplete: function () { gsap.set(tutMascotImg, { rotation: 0 }); } });
+    /* friendly nod from the framed portrait */
+    gsap.fromTo(qbarAgni, { scale: 0.88 },
+      { scale: 1, duration: 0.4, ease: 'back.out(3)', transformOrigin: '50% 100%' });
   }
 
   function hideTutMascot() {
     if (typeCall) { typeCall.kill(); typeCall = null; }
-    /* a clip that has not started yet must not speak after Agni leaves
+    /* a clip that has not started yet must not speak after the bar leaves
        (one already playing is left to finish naturally — no mid-word cuts) */
     if (voCall) { voCall.kill(); voCall = null; }
     if (!tutMascotIn) return;
     tutMascotIn = false;
-    gsap.to(tutMascotBubble, { autoAlpha: 0, scale: 0.4, duration: 0.25, ease: 'back.in(1.6)' });
-    gsap.to(tutMascotImg, { x: 420, autoAlpha: 0, duration: 0.5, ease: 'power2.in',
-      onComplete: function () { gsap.set(tutMascot, { visibility: 'hidden' }); } });
+    gsap.to([qbarBg, qbarFrame, qbarAgni, tutMascotText], {
+      y: -210, autoAlpha: 0, duration: 0.4, ease: 'power2.in',
+      onComplete: function () { gsap.set(qbar, { visibility: 'hidden' }); }
+    });
   }
 
   function clearTutTimers() {
