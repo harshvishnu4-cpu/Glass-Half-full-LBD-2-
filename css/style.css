@@ -6,11 +6,20 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html, body { height: 100%; }
+/* The board never scrolls or rubber-bands: dragging a glass past the edge
+   used to pan the page itself on touch devices, and a slow drag could start
+   a text/image selection that left the glass stuck to the cursor. */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
 
 body {
   background: #14080a;
-  overflow: hidden;
   font-family: 'Lilita One', system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
@@ -338,8 +347,6 @@ img { user-select: none; -webkit-user-drag: none; }
   padding: 0;
   visibility: hidden; /* revealed with a pop once every asset is preloaded */
 }
-/* wider pill when it's the "Play Again" button (shown after a win) */
-#play-btn.again { width: 360px; margin-left: -180px; }
 #play-btn img {
   width: 100%;
   display: block;

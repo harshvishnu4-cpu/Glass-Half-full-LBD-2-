@@ -445,13 +445,17 @@
     });
   }
 
-  /* reveal the line one character at a time, with a soft blip per letter;
-     onDone (optional) fires the moment the full line has been typed */
-  function typewrite(text, startDelay, onDone) {
+  /* reveal the line one character at a time, with a soft blip per letter.
+     onDone (optional) fires the moment the full line has been typed; marks
+     (optional) is a list of {at, fn} fired as the typing reaches that
+     character, so a cue can land on the words that describe it. */
+  function typewrite(text, startDelay, onDone, marks) {
     if (typeCall) { typeCall.kill(); typeCall = null; }
     tutMascotText.textContent = '';
+    var pending = marks ? marks.slice() : null;
     var i = 0;
     function step() {
+      while (pending && pending.length && pending[0].at <= i) pending.shift().fn();
       if (i >= text.length) {
         typeCall = null;
         if (onDone) onDone();
@@ -466,7 +470,13 @@
     typeCall = gsap.delayedCall(startDelay || 0, step);
   }
 
-  function showTutMascot(text, onDone) {
+  function showTutMascot(text, onDone, marks) {
+    /* one message at a time: the order bubble would sit behind the bar, so
+       it steps aside while Agni talks and comes back when he is done */
+    if (state.phase === 2 && state.demand && !demandHiddenByBar) {
+      demandHiddenByBar = true;
+      hideDemandBubble();
+    }
     if (!tutMascotIn) {
       tutMascotIn = true;
       SFX.play('ask');
@@ -476,12 +486,12 @@
         { y: -210, autoAlpha: 0 },
         { y: 0, autoAlpha: 1, duration: 0.55, ease: 'power3.out' });
       speakLine(text, 0.6);
-      typewrite(text, 0.6, onDone); /* start typing once the bar has settled */
+      typewrite(text, 0.6, onDone, marks); /* start typing once the bar has settled */
     } else {
       /* already on screen — Agni's portrait pops and the new line types in */
       SFX.play('ask');
       speakLine(text, 0.2);
-      typewrite(text, 0.2, onDone);
+      typewrite(text, 0.2, onDone, marks);
     }
     /* friendly nod from the framed portrait */
     gsap.fromTo(qbarAgni, { scale: 0.88 },
@@ -493,6 +503,11 @@
     /* a clip that has not started yet must not speak after the bar leaves
        (one already playing is left to finish naturally — no mid-word cuts) */
     if (voCall) { voCall.kill(); voCall = null; }
+    /* the bar is out of the way — the customer's order can come back */
+    if (demandHiddenByBar) {
+      demandHiddenByBar = false;
+      if (state.demand) showDemandBubble(state.demand);
+    }
     if (!tutMascotIn) return;
     tutMascotIn = false;
     gsap.to([qbarBg, qbarFrame, qbarAgni, tutMascotText], {
@@ -549,11 +564,11 @@
     ghostTl = gsap.timeline({ repeat: -1, repeatDelay: 0.75 });
     ghostTl
       /* the phantom takes over from the real glass on the spot — the glass
-         dims to a faint outline as the phantom brightens, so the demo reads
-         as the glass itself lifting rather than a copy sliding out from
-         behind it — and the glass brightens again as the phantom lands */
+         hands off completely (a partly-faded one read as a grey shadow left
+         behind), so the demo is simply the glass lifting and flying to its
+         tray, and it is back home as the phantom lands */
       .to(ghostGlassEl, { autoAlpha: 0.95, duration: 0.32 })
-      .to(g.img, { autoAlpha: 0.3, duration: 0.32 }, '<')
+      .to(g.img, { autoAlpha: 0, duration: 0.32 }, '<')
       .to(ghostGlassEl, { y: fromY - 34, scale: 1.08, duration: 0.32, ease: 'power2.out' }) /* picked up */
       .to(ghostGlassEl, { x: toX, keyframes: { y: [fromY - 34, midY, toY] },
         duration: 1.1, ease: 'power1.inOut' })                                    /* dragged to tray */
@@ -586,7 +601,8 @@
     /* same gentle 1.12 peak the miss hints use — a bigger one made this glass
        balloon out of the row and read as the odd one out */
     gsap.to(g.img, { scale: 1.12, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' });
-    hintZone('empty');  /* the empty tray's plate glows together with the glass */
+    /* the tray is NOT lit here — it joins in only when Agni reaches the words
+       "Put it in the correct tray" (see the typewriter mark in intro) */
   }
 
   /* add the ghost drag demo for the hands-on step (glass + tray already glow) */
@@ -750,6 +766,8 @@
     if (!state.demandQueue.length) { finalWin(); return; }
     state.demand = null; /* no orders while the customer is still walking */
     state.wrongStreak = 0;
+    demandHiddenByBar = false;
+    hideTutMascot();     /* clean slate at the top of the screen for the new order */
     clearServeHint();
     var pool = PHASE2.chars.filter(function (c) { return c !== state.lastChar; });
     var c = pool[Math.floor(Math.random() * pool.length)];
@@ -762,7 +780,10 @@
     });
   }
 
-  /* the designed order bubble: half/full glass artwork beside the customer */
+  /* the designed order bubble: half/full glass artwork beside the customer.
+     It shares the top of the screen with the question bar, so it yields to
+     the bar while Agni is speaking (see showTutMascot). */
+  var demandHiddenByBar = false;
   function showDemandBubble(type) {
     demandBubble.src = ASSET('assets/img/bubble-' + type + '.webp');
     gsap.killTweensOf(demandBubble);
@@ -804,6 +825,8 @@
     state.demand = null; /* close the round */
     state.served += 1;
     hideDemandBubble();
+    demandHiddenByBar = false;
+    hideTutMascot();  /* they got it right — the hint has done its job */
     state.wrongStreak = 0;
     clearServeHint();
 
@@ -1139,22 +1162,10 @@
     }
   }
 
-  /* ---------- win / replay ---------- */
+  /* ---------- win ---------- */
 
-  /* splash over the win screen, then reload to the title screen. the "?again"
-     flag survives the reload so the title shows the "Play Again" button */
-  var returning = false;
-  function returnToTitle() {
-    if (returning) return;
-    returning = true;
-    splashTransition(function () {
-      /* assigning an identical search string does NOT navigate, so replays
-         after the first one need an explicit reload */
-      if (/[?&]again\b/.test(location.search)) location.reload();
-      else location.search = '?again';
-    }, null);
-  }
-
+  /* The game ends here: the celebration video plays once and the final frame
+     stays on screen. Nothing navigates away and there is no replay button. */
   function showWin() {
     SFX.play('win');
     confettiBurst(90);
@@ -1164,14 +1175,11 @@
     gsap.delayedCall(1.4, function () { confettiBurst(60); });
 
     /* play the celebration once — WITH its own audio (the background music
-       fades out so the video takes the stage); when it ends, back to the
-       title screen. If the browser blocks audible playback, fall back to
-       muted so the celebration always plays. */
+       fades out so the video takes the stage). If the browser blocks audible
+       playback, fall back to muted so the celebration always plays; if it
+       cannot play at all, the poster frame stands in as the end screen. */
     var winVideo = document.getElementById('win-bg');
     if (winVideo) {
-      /* three ways back to the title — 'ended', 'error', and a watchdog a
-         second past the ~4s clip — so the player can never get stuck here */
-      winVideo.addEventListener('ended', returnToTitle, { once: true });
       SFX.stopMusic();
       var VIDEO_FILE = 'assets/img/endscreen.webm';
       function playVideo() {
@@ -1199,10 +1207,6 @@
       var local = ASSET(VIDEO_FILE);
       if (local !== VIDEO_FILE) winVideo.src = local;
       playVideo();
-      /* watchdog: re-armed on every win screen */
-      gsap.delayedCall(5.5, returnToTitle);
-    } else {
-      gsap.delayedCall(3.5, returnToTitle);
     }
   }
 
@@ -1213,13 +1217,6 @@
   var gameStarted = false;
 
   function showTitle() {
-    /* returning from a win ("?again"): show the "Play Again" button instead */
-    if (/[?&]again\b/.test(location.search)) {
-      playBtn.classList.add('again');
-      var pImg = playBtn.querySelector('img');
-      pImg.src = ASSET('assets/img/play-again.webp');
-      pImg.alt = 'Play Again';
-    }
     /* the Play button stays hidden behind the juice loading bar and pops in
        only once EVERY asset is preloaded (the preloader can never stall —
        failures count as done) */
@@ -1255,6 +1252,15 @@
   /* browsers only allow audio after a user gesture — unlock on the first one */
   document.addEventListener('pointerdown', function () { SFX.unlock(); }, { once: true });
 
+  /* the board is not a document: never let a drag start a native image drag
+     or a text selection, and never let a swipe scroll/bounce the page */
+  document.addEventListener('dragstart', function (e) { e.preventDefault(); });
+  document.addEventListener('selectstart', function (e) { e.preventDefault(); });
+  document.addEventListener('touchmove', function (e) {
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); }); /* iOS pinch-zoom */
+
   /* ---------- intro ---------- */
 
   function intro() {
@@ -1268,15 +1274,20 @@
         { scale: 0, duration: 0.5, ease: 'back.out(2.2)', stagger: 0.06 }, 0.8)
       .add(function () { state.glasses.forEach(startIdle); });
 
-    /* Agni walks in and speaks every line, then steps aside for the hands-on
-       step (all skipped if the player just dives in and drops a glass) */
-    tutLater(0.9, function () { showTutMascot(TUT[0]); });
-    tutLater(4.8, function () { showTutMascot(TUT[1]); });
-    tutLater(8.2, function () {
-      showTutMascot(TUT[2]);
-      highlightEmptyGlass(); /* spotlight the empty glass + empty tray as Agni names it */
+    /* Agni speaks every line, then steps aside for the hands-on step (all
+       skipped if the player just dives in and drops a glass). The first line
+       waits ~1.5s so the scene has settled before the bar drops in. */
+    tutLater(1.5, function () { showTutMascot(TUT[0]); });
+    tutLater(5.4, function () { showTutMascot(TUT[1]); });
+    tutLater(8.8, function () {
+      /* the glass lights up as Agni names it ("This glass is empty"), and the
+         tray only joins in when he says where to put it */
+      highlightEmptyGlass();
+      showTutMascot(TUT[2], null, [
+        { at: TUT[2].indexOf('Put it'), fn: function () { hintZone('empty'); } }
+      ]);
     });
-    tutLater(12.0, function () {
+    tutLater(12.9, function () {
       hideTutMascot();
       state.locked = false; /* dialogue over — hands on the glasses! */
       startSortHint();

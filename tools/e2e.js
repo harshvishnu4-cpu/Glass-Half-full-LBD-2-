@@ -166,11 +166,31 @@ function expect(label, actual, wanted) {
   const glassIdxOf = (t) => page.evaluate(
     (ty) => Array.from(document.querySelectorAll('.glass')).findIndex((el) => el.dataset.type === ty), t);
 
-  // wrong serve: hand over the type the customer did NOT ask for
+  // two wrong serves: the hint bar appears, and the order bubble must step
+  // aside for it rather than hide behind it
   let demand = await page.evaluate(() => window.__game.demand);
-  await dragTo(await glassIdxOf(demand === 'half' ? 'full' : 'half'), '#zone-customer');
+  const wrongIdx = await glassIdxOf(demand === 'half' ? 'full' : 'half');
+  await dragTo(wrongIdx, '#zone-customer');
   await sleep(500);
   expect('served after wrong serve', await served(), 0);
+  await dragTo(wrongIdx, '#zone-customer');
+  await page.waitForFunction(
+    () => document.getElementById('qbar-text').textContent.startsWith('Pick a'), { timeout: 8000 });
+  const overlap = await page.evaluate(() => {
+    const q = document.getElementById('qbar-bg').getBoundingClientRect();
+    const o = document.getElementById('demand-bubble');
+    const b = o.getBoundingClientRect();
+    const visible = getComputedStyle(o).visibility === 'visible' && +getComputedStyle(o).opacity > 0.05;
+    return { visible, boxesCross: b.top < q.bottom && b.bottom > q.top };
+  });
+  expect('order bubble does not sit behind the question bar', !(overlap.visible && overlap.boxesCross), true);
+  await page.screenshot({ path: path.join(SHOTS, '3c-hint.png') });
+  // ...and it comes back once the bar has gone
+  await page.waitForFunction(() => {
+    const o = document.getElementById('demand-bubble');
+    return getComputedStyle(o).visibility === 'visible' && +getComputedStyle(o).opacity > 0.9;
+  }, { timeout: 12000 });
+  expect('order bubble returns after the hint', true, true);
 
   // serve all 6 correctly
   let rounds = 0;
@@ -198,14 +218,26 @@ function expect(label, actual, wanted) {
     return s.visibility === 'visible' && parseFloat(s.opacity) > 0.9;
   }), true);
 
-  // 4. when the celebration video ends, the game auto-returns to the title screen
-  await page.waitForNavigation({ waitUntil: 'load', timeout: 20000 });
-  await sleep(1500);
-  expect('title screen visible after win', await page.evaluate(
-    () => getComputedStyle(document.getElementById('title-screen')).display !== 'none'), true);
-  expect('placed reset after return', await placed(), 0);
-  expect('glasses rebuilt after return', await page.evaluate(() => document.querySelectorAll('.glass').length), 9);
-  await page.screenshot({ path: path.join(SHOTS, '5-replay.png') });
+  // 4. the game ENDS on the celebration video: it plays through and the final
+  // frame stays put — no navigation, no replay button
+  const urlBefore = page.url();
+  expect('celebration video is playing', await page.evaluate(() => {
+    const v = document.getElementById('win-bg');
+    return !!v && !v.paused && !v.error;
+  }), true);
+  await sleep(6000); // past the ~4s clip
+  expect('still on the end screen (no navigation)', page.url(), urlBefore);
+  expect('win overlay still covering the game', await page.evaluate(() => {
+    const s = getComputedStyle(document.getElementById('win-overlay'));
+    return s.visibility === 'visible' && parseFloat(s.opacity) > 0.9;
+  }), true);
+  expect('video ran to the end and stopped there', await page.evaluate(() => {
+    const v = document.getElementById('win-bg');
+    return v.ended || v.currentTime > 3;
+  }), true);
+  expect('title screen not shown again', await page.evaluate(
+    () => getComputedStyle(document.getElementById('title-screen')).display === 'none'), true);
+  await page.screenshot({ path: path.join(SHOTS, '5-end.png') });
 
   console.log('page errors:', errors.length ? errors.join(' | ') : 'none');
   if (errors.length) failures++;
