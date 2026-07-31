@@ -239,29 +239,45 @@ img { user-select: none; -webkit-user-drag: none; }
   pointer-events: none;
 }
 
-/* question bar — all guidance is spoken here (Figma node 670:18). Every
-   coordinate is the design's own, offset by the bar frame's x=32 origin. */
-#qbar {
+/* Agni peeks around the left edge of the stall and speaks (Figma node
+   670:1298). Every coordinate is the design's own. The dragon art is the
+   design's already-clipped 526x756 crop, so it sits flush at left: 0. */
+/* no z-index here on purpose: the wrapper must not make a stacking context,
+   so the dragon and his bubble can sit at different depths */
+#agni {
   position: absolute;
   inset: 0;
-  z-index: 9;
   pointer-events: none;
   visibility: hidden;
 }
-#qbar-bg    { position: absolute; left: 129px; top: 49px; width: 1757px; height: 117px; }
-#qbar-frame { position: absolute; left: 58px;  top: 20px; width: 169px;  height: 169px; }
-#qbar-agni  { position: absolute; left: 75px;  top: 46px; width: 134px;  height: 118px; }
-#qbar-text {
+#agni-img {
   position: absolute;
-  left: 257px; top: 56px;
-  width: 1636px; height: 98px;
-  display: flex;
-  align-items: center;          /* the design centres the line in its box */
-  font-size: 46px;
-  line-height: normal;
-  color: #fff;
-  text-shadow: 0 2.902px 0 #844a08;
+  left: 0; top: 201px;
+  width: 526px; height: 756px;
+  /* in front of the counter and trays like the design, but behind the
+     glasses (7) so a glass dragged to the Empty tray is never hidden */
+  z-index: 6;
 }
+/* the bubble body is 582x187 at (241,140); the artwork's own canvas is a
+   touch larger because the outline strokes outside that box */
+#agni-bubble {
+  position: absolute;
+  z-index: 9;                 /* speech reads above everything on the counter */
+  left: 241px; top: 137.5px;
+  width: 584.87px; height: 192.22px;
+  box-sizing: border-box;
+  background: url('../assets/img/agni-bubble.webp') center / 100% 100% no-repeat;
+  /* Centred both ways inside the cream body. The body ends at y=304.7 (the
+     tail hangs below that), so the bottom pad is larger than the top one to
+     keep the text optically centred rather than sitting high. */
+  padding: 16px 40px 38.5px 40px;
+  display: flex;
+  align-items: center;
+  font-size: 38px;
+  line-height: 1.16;
+  color: #77300c;
+}
+#agni-text { width: 100%; text-align: center; }
 
 /* tutorial: a translucent ghost of the glass drags itself to the tray */
 .glass-ghost {

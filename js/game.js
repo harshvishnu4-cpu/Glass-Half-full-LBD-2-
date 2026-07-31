@@ -423,12 +423,11 @@
   }
   document.addEventListener('pointerdown', armIdleNudge);
 
-  /* the question bar carries every line of guidance (design node 670:18) */
-  var qbar = document.getElementById('qbar');
-  var qbarBg = document.getElementById('qbar-bg');
-  var qbarFrame = document.getElementById('qbar-frame');
-  var qbarAgni = document.getElementById('qbar-agni');
-  var tutMascotText = document.getElementById('qbar-text');
+  /* Agni carries every line of guidance (design node 670:1298) */
+  var qbar = document.getElementById('agni');
+  var agniImg = document.getElementById('agni-img');
+  var agniBubble = document.getElementById('agni-bubble');
+  var tutMascotText = document.getElementById('agni-text');
   var tutMascotIn = false;
   var typeCall = null;
   var voCall = null, lineVoiced = false;
@@ -480,22 +479,28 @@
     if (!tutMascotIn) {
       tutMascotIn = true;
       SFX.play('ask');
-      /* the bar drops in from off the top of the stage, then speaks */
+      /* Agni leans in around the left post, then his bubble pops open */
       gsap.set(qbar, { visibility: 'visible' });
-      gsap.fromTo([qbarBg, qbarFrame, qbarAgni, tutMascotText],
-        { y: -210, autoAlpha: 0 },
-        { y: 0, autoAlpha: 1, duration: 0.55, ease: 'power3.out' });
-      speakLine(text, 0.6);
-      typewrite(text, 0.6, onDone, marks); /* start typing once the bar has settled */
+      gsap.fromTo(agniImg, { x: -300, autoAlpha: 0 },
+        { x: 0, autoAlpha: 1, duration: 0.55, ease: 'power3.out' });
+      gsap.fromTo(agniBubble, { autoAlpha: 0, scale: 0.4 },
+        { autoAlpha: 1, scale: 1, duration: 0.45, ease: 'back.out(2)', delay: 0.3,
+          transformOrigin: '0% 100%' }); /* grows out of the tail, by his head */
+      speakLine(text, 0.65);
+      typewrite(text, 0.65, onDone, marks); /* type once the bubble is open */
     } else {
-      /* already on screen — Agni's portrait pops and the new line types in */
+      /* already on screen — the bubble pops and the new line types in */
       SFX.play('ask');
+      gsap.fromTo(agniBubble, { scale: 0.94 },
+        { scale: 1, duration: 0.3, ease: 'back.out(2.4)', transformOrigin: '0% 100%' });
       speakLine(text, 0.2);
       typewrite(text, 0.2, onDone, marks);
     }
-    /* friendly nod from the framed portrait */
-    gsap.fromTo(qbarAgni, { scale: 0.88 },
-      { scale: 1, duration: 0.4, ease: 'back.out(3)', transformOrigin: '50% 100%' });
+    /* friendly wiggle as he talks */
+    gsap.fromTo(agniImg, { rotation: -1.6 },
+      { rotation: 1.6, duration: 0.16, yoyo: true, repeat: 3, ease: 'sine.inOut',
+        transformOrigin: '20% 100%',
+        onComplete: function () { gsap.set(agniImg, { rotation: 0 }); } });
   }
 
   function hideTutMascot() {
@@ -510,10 +515,10 @@
     }
     if (!tutMascotIn) return;
     tutMascotIn = false;
-    gsap.to([qbarBg, qbarFrame, qbarAgni, tutMascotText], {
-      y: -210, autoAlpha: 0, duration: 0.4, ease: 'power2.in',
-      onComplete: function () { gsap.set(qbar, { visibility: 'hidden' }); }
-    });
+    gsap.to(agniBubble, { autoAlpha: 0, scale: 0.5, duration: 0.25, ease: 'back.in(1.6)',
+      transformOrigin: '0% 100%' });
+    gsap.to(agniImg, { x: -300, autoAlpha: 0, duration: 0.45, ease: 'power2.in', delay: 0.1,
+      onComplete: function () { gsap.set(qbar, { visibility: 'hidden' }); } });
   }
 
   function clearTutTimers() {

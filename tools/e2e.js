@@ -99,13 +99,13 @@ function expect(label, actual, wanted) {
   await sleep(400); // return-home tween
   expect('placed after wrong drop', await placed(), 1);
   expect('no hint after 1st wrong attempt', await page.evaluate(() =>
-    !document.getElementById('qbar-text').textContent.includes('This glass is half full') &&
+    !document.getElementById('agni-text').textContent.includes('This glass is half full') &&
     !document.querySelector('.glass.highlight') && !document.querySelector('.glass-ghost') &&
     !document.querySelector('.tray-glow.on')), true);
   // 2nd miss — Agni's type-specific line appears, but still no visual aids
   await dragTo(1, '#zone-full');
   await page.waitForFunction(
-    () => document.getElementById('qbar-text').textContent.includes('This glass is half full'),
+    () => document.getElementById('agni-text').textContent.includes('This glass is half full'),
     { timeout: 8000 });
   expect('dialogue after 2nd wrong attempt', true, true);
   // ...together with the glass pulsing, but no tray light and no ghost demo yet
@@ -175,9 +175,9 @@ function expect(label, actual, wanted) {
   expect('served after wrong serve', await served(), 0);
   await dragTo(wrongIdx, '#zone-customer');
   await page.waitForFunction(
-    () => document.getElementById('qbar-text').textContent.startsWith('Pick a'), { timeout: 8000 });
+    () => document.getElementById('agni-text').textContent.startsWith('Pick a'), { timeout: 8000 });
   const overlap = await page.evaluate(() => {
-    const q = document.getElementById('qbar-bg').getBoundingClientRect();
+    const q = document.getElementById('agni-bubble').getBoundingClientRect();
     const o = document.getElementById('demand-bubble');
     const b = o.getBoundingClientRect();
     const visible = getComputedStyle(o).visibility === 'visible' && +getComputedStyle(o).opacity > 0.05;
