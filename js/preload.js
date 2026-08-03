@@ -21,6 +21,23 @@
   var TRANSFER_TIMEOUT = 45000;  /* per file */
   var FAILSAFE = 90000;          /* whole load — reveal Play no matter what */
 
+  /* A blob MUST carry its MIME type. An <img> sniffs raster bytes, so a
+     typeless WebP still renders — but SVG is NEVER sniffed: an <img> draws it
+     only for image/svg+xml, and a typeless blob leaves a broken image. Prefer
+     what the server said; fall back to the extension so a server that serves
+     .svg as octet-stream/text can't break the art either. */
+  var MIME = {
+    webp: 'image/webp', svg: 'image/svg+xml', png: 'image/png',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+    webm: 'video/webm', ogg: 'audio/ogg', mp3: 'audio/mpeg', woff2: 'font/woff2'
+  };
+  function mimeFor(url, res) {
+    var ct = res.headers.get('Content-Type');
+    if (ct) ct = ct.split(';')[0].trim().toLowerCase();
+    if (ct && ct !== 'application/octet-stream' && ct !== 'text/plain') return ct;
+    return MIME[(url.split('.').pop() || '').toLowerCase()] || '';
+  }
+
   var blobs = {};
   var readyFns = [];
   var isDone = false;
@@ -84,12 +101,13 @@
         /* refine the expectation with Content-Length, but never past the
            manifest weight — the bar must stay monotonic */
         var expect = Math.min(f.b, parseInt(res.headers.get('Content-Length'), 10) || f.b);
-        if (!res.body || !res.body.getReader) return res.blob();
+        if (!res.body || !res.body.getReader) return res.blob(); /* keeps its own type */
+        var type = mimeFor(f.u, res);
         var reader = res.body.getReader();
         var chunks = [], got = 0;
         return (function pump() {
           return reader.read().then(function (r) {
-            if (r.done) return new Blob(chunks);
+            if (r.done) return new Blob(chunks, { type: type });
             chunks.push(r.value);
             got += r.value.byteLength;
             partial[f.u] = Math.min(got, expect);

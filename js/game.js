@@ -789,7 +789,15 @@
      the bar while Agni is speaking (see showTutMascot). */
   var demandHiddenByBar = false;
   function showDemandBubble(type) {
-    demandBubble.src = ASSET('assets/img/bubble-' + type + '.svg');
+    /* set directly rather than through the preloader's swap, so carry its
+       fallback too: if the local blob ever fails to decode, reload the real
+       file instead of leaving the customer with a broken order */
+    var path = 'assets/img/bubble-' + type + '.svg';
+    demandBubble.onerror = function () {
+      demandBubble.onerror = null;
+      if (demandBubble.getAttribute('src') !== path) demandBubble.src = path;
+    };
+    demandBubble.src = ASSET(path);
     gsap.killTweensOf(demandBubble);
     gsap.set(demandBubble, { y: 0, rotation: 0 });
     gsap.fromTo(demandBubble, { autoAlpha: 0, scale: 0.3 },

@@ -162,6 +162,20 @@ function expect(label, actual, wanted) {
   await sleep(700); // bubble pop-in
   await page.screenshot({ path: path.join(SHOTS, '3-customers.png') });
 
+  // the order bubble must actually DECODE, not just be visible. A broken <img>
+  // still has visibility:visible and a layout box, so only naturalWidth proves
+  // the art rendered — this caught the preloader handing <img> a typeless blob
+  // (SVG is never content-sniffed, so it silently failed over HTTP only).
+  expect('order bubble art decoded', await page.evaluate(() => {
+    const o = document.getElementById('demand-bubble');
+    return o.complete && o.naturalWidth > 0;
+  }), true);
+  // and nothing else on the stage is a broken image
+  const brokenImgs = await page.evaluate(() => Array.from(document.querySelectorAll('img'))
+    .filter((im) => im.complete && im.naturalWidth === 0)
+    .map((im) => (im.id || im.className || '?') + ' <- ' + im.getAttribute('src')));
+  expect('no broken images', brokenImgs.length ? brokenImgs.join('; ') : 'none', 'none');
+
   const served = () => page.evaluate(() => window.__game.served);
   const glassIdxOf = (t) => page.evaluate(
     (ty) => Array.from(document.querySelectorAll('.glass')).findIndex((el) => el.dataset.type === ty), t);
