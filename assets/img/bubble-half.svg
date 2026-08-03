@@ -34,7 +34,15 @@
 </g>
 <defs>
 <clipPath id="clip0_742_467">
-<rect width="115" height="58" fill="white"/>
+<!-- Figma exported this bubble as two copies clipped at y=58 (top half from a
+     box whose body starts at y=31, bottom half from one ending at y=120) so the
+     corner radii would not stretch. Abutting clips each anti-alias against
+     transparency, which drew a hairline across the bubble at every display size
+     that is not an exact multiple of 115px. Both copies are identical through
+     the straight-sided middle (top: straight from y=54, bottom: to y=97), so
+     this clip runs 8px PAST the join and the two overlap instead of abutting —
+     each clip edge now lands where the other copy paints the same pixels. -->
+<rect width="115" height="66" fill="white"/>
 </clipPath>
 <clipPath id="clip1_742_467">
 <rect width="115" height="74" fill="white" transform="translate(0 58)"/>

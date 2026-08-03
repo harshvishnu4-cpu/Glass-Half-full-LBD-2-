@@ -34,7 +34,9 @@
 </g>
 <defs>
 <clipPath id="clip0_742_506">
-<rect width="115" height="58" fill="white"/>
+<!-- runs 8px past the y=58 join so the two clipped copies overlap instead of
+     abutting — see the matching note in bubble-half.svg -->
+<rect width="115" height="66" fill="white"/>
 </clipPath>
 <clipPath id="clip1_742_506">
 <rect width="115" height="74" fill="white" transform="translate(0 58)"/>
