@@ -39,7 +39,7 @@ if (unreferenced.length) {
 }
 
 // every asset path mentioned in code must exist on disk (no 404s)
-const refs = code.match(/(assets|audio)\/[\w./-]+\.(webp|webm|ogg|woff2)/g) || [];
+const refs = code.match(/(assets|audio)\/[\w./-]+\.(webp|svg|webm|ogg|woff2)/g) || [];
 const missing = [...new Set(refs.map((r) => r.replace(/^\.\.\//, '')))]
   .filter((r) => !fs.existsSync(path.join(ROOT, r)));
 if (missing.length) {

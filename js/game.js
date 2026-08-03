@@ -716,8 +716,7 @@
       });
       state.glasses = [];
       gsap.set(['#trays', '#plaque-empty', '#plaque-half', '#plaque-full'], { autoAlpha: 0 });
-      gsap.set(['#trays2', '#lemonbox', '#strawbox', '#plaque2-half', '#plaque2-full'],
-        { autoAlpha: 1, x: 0, y: 0 });
+      gsap.set(['#trays2', '#lemonbox', '#strawbox'], { autoAlpha: 1, x: 0, y: 0 });
       buildGlasses2();
       /* one shuffled deck of all six orders — well mixed, never runs dry */
       state.demandQueue = shuffle(['half', 'half', 'half', 'full', 'full', 'full']);
@@ -790,7 +789,7 @@
      the bar while Agni is speaking (see showTutMascot). */
   var demandHiddenByBar = false;
   function showDemandBubble(type) {
-    demandBubble.src = ASSET('assets/img/bubble-' + type + '.webp');
+    demandBubble.src = ASSET('assets/img/bubble-' + type + '.svg');
     gsap.killTweensOf(demandBubble);
     gsap.set(demandBubble, { y: 0, rotation: 0 });
     gsap.fromTo(demandBubble, { autoAlpha: 0, scale: 0.3 },
@@ -951,7 +950,7 @@
     Object.keys(GARNISH_ART).forEach(function (t) {
       Object.keys(GARNISH_ART[t]).forEach(function (v) { new Image().src = ASSET(GARNISH_ART[t][v].src); });
     });
-    ['assets/img/bubble-half.webp', 'assets/img/bubble-full.webp']
+    ['assets/img/bubble-half.svg', 'assets/img/bubble-full.svg']
       .forEach(function (src) { new Image().src = ASSET(src); });
     SFX.preloadVoices(Object.keys(VO).map(function (t) { return VO[t]; }));
   });
@@ -1028,7 +1027,7 @@
   }
 
   /* remove the lemon/straw boxes and glide the Half + Full trays (with their
-     plaques and glasses) so the pair sits centred on the stage */
+     glasses) so the pair sits centred on the stage */
   function centerServingTrays() {
     stopGarnishNudge();
     var dx = 960 - (PHASE2.trayCenters.half + PHASE2.trayCenters.full) / 2;
@@ -1036,8 +1035,7 @@
       x: '-=460', autoAlpha: 0, duration: 0.5, ease: 'power2.in',
       onComplete: function () { gsap.set(['#lemonbox', '#strawbox'], { display: 'none' }); }
     });
-    gsap.to(['#trays2', '#plaque2-half', '#plaque2-full'],
-      { x: '+=' + dx, duration: 0.75, ease: 'power2.inOut' });
+    gsap.to('#trays2', { x: '+=' + dx, duration: 0.75, ease: 'power2.inOut' });
     state.glasses.forEach(function (g) {
       if (g.placed) return; /* served glasses are already gone */
       g.homeX += dx; /* so a rejected serve returns to the centred spot */

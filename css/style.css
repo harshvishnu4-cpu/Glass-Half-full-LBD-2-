@@ -172,11 +172,10 @@ img { user-select: none; -webkit-user-drag: none; }
   pointer-events: none;
 }
 .plaque span { font-size: 65px; color: #972129; line-height: 1; }
+/* level 1 only — the level 2 serving trays are left unlabelled */
 #plaque-empty { left: 160px;  top: 968px; }
 #plaque-half  { left: 773px;  top: 969px; }
 #plaque-full  { left: 1405px; top: 969px; }
-#plaque2-half { left: 826px;  top: 967px; }
-#plaque2-full { left: 1458px; top: 967px; }
 
 /* coins the customers pay — they fly from the customer and pile up on the counter */
 .coin-fly {
@@ -189,15 +188,17 @@ img { user-select: none; -webkit-user-drag: none; }
   will-change: transform;
 }
 
-/* designed order bubble (half/full glass artwork, tail points down-right);
-   sits snug at the customer's head — every customer's head top is y=305,
-   centred on the serve spot (x=960) — so the tail tip touches the head */
+/* designed order bubble ("Half Full" / "Full" comic box, tail points
+   down-right); sits snug at the customer's head — every customer's head top
+   is y=305, centred on the serve spot (x=960) — so the tail tip touches it.
+   The art carries ~23% transparent padding along its top edge, so the drawn
+   box starts 62px below `top` and the tail tip lands at (885, 348). */
 #demand-bubble {
   position: absolute;
   z-index: 9;
-  left: 705px; top: 78px;
-  width: 185px;
-  transform-origin: 85% 95%;
+  left: 669px; top: 86px;
+  width: 230px;
+  transform-origin: 94% 99%;   /* pop/shake pivots on the tail tip */
   opacity: 0;
   visibility: hidden;
   filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
@@ -228,7 +229,10 @@ img { user-select: none; -webkit-user-drag: none; }
   align-items: center;
   justify-content: center;
   background: url('../assets/img/tut-bubble.webp') center top / 100% 100% no-repeat;
-  padding: 18px 24px 38px;
+  /* the cream body ends at y=155.4 (the tail runs to the bottom edge), so the
+     bottom pad is the one that centres the line on the body — 38px left it
+     sitting 6.6px low. Measured off tut-bubble.webp: body y 7.5-155.4. */
+  padding: 18px 24px 51px;
   font-size: 28px;
   line-height: 1.15;
   color: #000;
@@ -267,10 +271,13 @@ img { user-select: none; -webkit-user-drag: none; }
   width: 584.87px; height: 192.22px;
   box-sizing: border-box;
   background: url('../assets/img/agni-bubble.webp') center / 100% 100% no-repeat;
-  /* Centred both ways inside the cream body. The body ends at y=304.7 (the
-     tail hangs below that), so the bottom pad is larger than the top one to
-     keep the text optically centred rather than sitting high. */
-  padding: 16px 40px 38.5px 40px;
+  /* Centred on the CREAM BODY, not on this box: the artwork's tail juts out
+     bottom-left, so the body sits 13.3px right of centre and ends at y=84.3
+     (the tail hangs below that). Padding — not text-align — carries both
+     offsets, so the line is optically centred instead of reading left-shifted
+     and high. Measured off agni-bubble.webp: body x 32.5-579, y 5-163.5.
+     Left+right still total 80px, so the wrap width is unchanged. */
+  padding: 16px 26.7px 38.5px 53.3px;
   display: flex;
   align-items: center;
   font-size: 38px;
