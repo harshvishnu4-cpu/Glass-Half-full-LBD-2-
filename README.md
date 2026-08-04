@@ -32,46 +32,55 @@ npm start        # npx serve .
 | `js/game.js` | Game logic: pointer drag, drop zones, GSAP animations |
 | `js/sfx.js` | Procedural Web Audio SFX (kid-friendly spooky) + night ambience |
 | `js/vendor/gsap.min.js` | GSAP 3 (vendored from npm) |
-| `assets/img/*.webp` | All artwork, exported from Figma and converted to WebP |
-| `assets/raw/` | Original Figma exports (PNG/SVG sources for the WebP files) |
+| `assets/img/` | All artwork: WebP raster + SVG for the order bubbles |
 | `assets/fonts/` | Self-hosted Lilita One |
-| `tools/` | Asset pipeline + e2e test (dev only, uses `sharp` / `puppeteer-core`) |
+| `tools/` | Dev only: static server, e2e tests, asset/CSS/dead-code checks |
 
-## Asset pipeline
+## Assets
 
-Assets were exported straight from the Figma file, then converted to WebP
-(~3.9 MB of PNG → ~230 KB):
+Everything was exported from the Figma file and converted to WebP ahead of
+time (the conversion scripts are not kept in the repo — the committed WebP
+files are the source of truth). Two exceptions:
 
-```
-npm run build:assets
-```
-
-- `tools/convert-webp.js` — converts the raw PNG exports to WebP (`sharp`).
-- `tools/clean-sprites.js` — the glass artwork exports carry the slide's
-  white background; this strips the background rects from the SVG exports,
-  renders them at 2x, and removes the plaque's white backdrop via
-  border-connected flood fill.
+- The order bubbles (`bubble-half.svg` / `bubble-full.svg`) stay vector so the
+  baked-in lettering is crisp at any stage scale.
 - The trays artwork is drawn on a white card in the source file; the game
   reproduces the Figma composite with `mix-blend-mode: multiply`.
 
+`js/preload-manifest.js` is generated — re-run `npm run check` after adding,
+removing or re-exporting any asset. It rewrites the size table the loading bar
+uses and reports anything referenced-but-missing or present-but-unused.
+
 ## Sound
 
-All SFX are synthesized live with the Web Audio API (`js/sfx.js`) — no audio
-files. The palette is "spooky, but friendly": a ghostly rise when you grab a
-glass, minor-key sparkle bells on a correct drop, a cartoon womp-womp on a
-wrong one, and a bell run with a ghost-choir pad for the win — over a soft
-night ambience of wind and a distant owl. A looping background music track
-(`audio/background.ogg`) fades in underneath. Audio starts on the first tap
-or click (browser autoplay policy).
+Most SFX are synthesized live with the Web Audio API (`js/sfx.js`), so they
+need no asset files. The palette is "spooky, but friendly": a ghostly rise when
+you grab a glass, minor-key sparkle bells on a correct drop, a cartoon
+womp-womp on a wrong one, and a bell run with a ghost-choir pad for the win —
+over a soft night ambience of wind and a distant owl. `audio/` holds the pieces
+that cannot be synthesized: Agni's recorded voice-over lines, the coin jingle,
+the till, and the looping music bed. Audio starts on the first tap or click
+(browser autoplay policy).
 
 ## Testing
 
 ```
-npm test         # tools/e2e.js
+npm test         # tools/e2e.js — full playthrough
+npm run check    # regenerate the preload manifest + dead CSS/JS scan
 ```
 
-Drives the real game in headless Edge with trusted pointer input and
-verifies: wrong-drop rejection, all 12 placements, the win overlay, and
-replay. Screenshots land in `tools/e2e-shots/`.
+`npm test` drives the real game in headless Edge with trusted pointer input and
+verifies: wrong-drop rejection, all 12 placements, hint escalation, the idle
+nudges, the coin flight, the win overlay and the sustained end screen.
+Screenshots land in `tools/e2e-shots/` (gitignored).
+
+Set `GAME_URL` to test over HTTP instead of `file://` — worth doing, because the
+preloader only fetches (and hands the game `blob:` URLs) over HTTP, so a whole
+class of asset bug is invisible on `file://`:
+
+```
+node tools/serve.js 8123
+GAME_URL=http://localhost:8123/ npm test
+```
 
 `index.html?ss=1` skips the intro animation (useful for screenshots).
