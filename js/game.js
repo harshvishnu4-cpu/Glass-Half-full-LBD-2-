@@ -865,14 +865,18 @@
   }
 
   /* the customer's coin arcs onto the counter, then is collected (vanishes).
-     It drops onto the shelf right where the drink was handed over — the gap
-     between the two centred trays — and is collected on the spot. It used to
-     sail all the way across to the far-left margin of the counter, which read
-     as the coin wandering off rather than being taken in. */
+     It lands on the bare wooden counter strip in front of the customer — the
+     band between the ledge lip (y=650) and the front of the trays (y=750), so
+     the 92px coin sits squarely on the wood rather than down among the trays.
+     Small horizontal spread so consecutive coins don't stack in one spot. */
+  var COIN_H = 92;                 /* .coin-fly is 92px wide and near-square */
+  var COIN_LEDGE = 650, COIN_TRAYS = 750;
   function giveCoin() {
     state.coins += 1;
-    var lx = SERVE_X - 46 + gsap.utils.random(-52, 52);
-    var ly = gsap.utils.random(950, 1000);
+    var lx = SERVE_X - 46 + gsap.utils.random(-90, 90);
+    /* centre the coin in the strip: top = midpoint - half its height */
+    var mid = (COIN_LEDGE + COIN_TRAYS) / 2 - COIN_H / 2;
+    var ly = mid + gsap.utils.random(-10, 10);
     var coin = document.createElement('img');
     coin.src = ASSET('assets/img/coins.webp');
     coin.className = 'coin-fly';
@@ -881,14 +885,14 @@
     gsap.timeline({ onComplete: function () { coin.remove(); } })
       .set(coin, { x: SERVE_X - 46, y: 430, scale: 0.4, autoAlpha: 0, transformOrigin: '50% 100%' })
       .to(coin, { autoAlpha: 1, scale: 1, duration: 0.2, ease: 'back.out(2)' })
-      /* tossed up out of their hands, then down onto the shelf */
-      .to(coin, { keyframes: { y: [430, 372, ly] }, duration: 0.75, ease: 'power1.inOut' }, 0.25)
-      .to(coin, { x: lx, rotation: gsap.utils.random(-20, 20), duration: 0.75, ease: 'power1.inOut' }, 0.25)
+      /* tossed up out of their hands, then down onto the counter */
+      .to(coin, { keyframes: { y: [430, 388, ly] }, duration: 0.7, ease: 'power1.inOut' }, 0.25)
+      .to(coin, { x: lx, rotation: gsap.utils.random(-20, 20), duration: 0.7, ease: 'power1.inOut' }, 0.25)
       /* it lands with a squash and settles */
-      .to(coin, { scaleY: 0.8, scaleX: 1.12, duration: 0.09, ease: 'power1.in' }, 1.0)
+      .to(coin, { scaleY: 0.8, scaleX: 1.12, duration: 0.09, ease: 'power1.in' }, 0.95)
       .to(coin, { scaleY: 1, scaleX: 1, duration: 0.24, ease: 'elastic.out(1.4, 0.5)' })
       /* collected, right where it came to rest */
-      .add(function () { burstSparks(lx + 46, ly + 30); }, '+=0.35')
+      .add(function () { burstSparks(lx + 46, ly + COIN_H / 2); }, '+=0.35')
       .to(coin, { autoAlpha: 0, scale: 0.45, y: ly - 22, duration: 0.3, ease: 'power2.in' }, '<');
   }
 

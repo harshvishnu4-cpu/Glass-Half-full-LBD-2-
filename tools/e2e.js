@@ -256,8 +256,15 @@ function expect(label, actual, wanted) {
     await dragTo(await glassIdxOf(demand), '#zone-customer');
     await page.waitForFunction((n) => window.__game.served === n + 1, { timeout: 6000 }, before);
     if (before === 0) {
-      // the coin is collected ON the shelf, in the gap between the two centred
-      // trays — not sailing off to the far-left margin of the counter
+      // the coin comes to rest on the bare wooden counter strip in front of the
+      // customer — between the ledge lip (y=650) and the front of the trays
+      // (y=750) — not down among the trays or off at the counter's left margin.
+      // Shoot the counter while the coin is still sitting there (it settles
+      // ~1.3s in and is cleared ~1.9s in) so the spot is visible in the shots.
+      await page.waitForFunction(() => !!document.querySelector('.coin-fly'), { timeout: 8000 });
+      await sleep(1250);
+      await page.screenshot({ path: path.join(SHOTS, '3d-coin.png'),
+        clip: { x: 0, y: 560, width: 1920, height: 260 } });
       const rest = await page.evaluate(() => new Promise((done) => {
         let last = null;
         const iv = setInterval(() => {
@@ -269,8 +276,10 @@ function expect(label, actual, wanted) {
         }, 40);
         setTimeout(() => { clearInterval(iv); done(last); }, 6000);
       }));
-      expect('coin is collected on the shelf', rest &&
-        Math.abs(rest.x - 914) <= 60 && rest.y > 900 ? 'yes' : 'no @ ' + JSON.stringify(rest), 'yes');
+      expect('coin rests on the counter strip', rest &&
+        Math.abs(rest.x - 914) <= 100 && rest.y > 620 && rest.y + 92 < 770
+        ? 'yes' : 'no @ ' + JSON.stringify(rest), 'yes');
+      console.log('   coin came to rest at ' + JSON.stringify(rest));
     }
     await page.waitForFunction(
       () => window.__game.demand !== null || window.__game.served === 6, { timeout: 10000 });
