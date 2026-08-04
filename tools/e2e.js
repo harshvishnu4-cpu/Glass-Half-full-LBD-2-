@@ -89,9 +89,20 @@ function expect(label, actual, wanted) {
   await sleep(400);
   expect('no glass left dimmed by the ghost demo', await page.evaluate(() =>
     window.__game.glasses.every((g) => +getComputedStyle(g.img).opacity > 0.95)), true);
-  // ...and sitting idle brings the demo back (the ~9s inactivity nudge)
-  await page.waitForFunction(() => document.querySelector('.glass-ghost'), { timeout: 13000 });
-  expect('idle nudge replays the ghost demo', true, true);
+  // ...and sitting idle pulses ONE glass to draw the eye back. The nudge is
+  // deliberately pulse-only — no ghost demo — so the idle stage never shows two
+  // competing animations at once.
+  await page.waitForFunction(
+    () => document.querySelectorAll('.glass.highlight').length === 1, { timeout: 26000 });
+  expect('idle nudge pulses exactly one glass', await page.evaluate(
+    () => document.querySelectorAll('.glass.highlight').length), 1);
+  expect('idle nudge runs no ghost demo', await page.evaluate(
+    () => !document.querySelector('.glass-ghost')), true);
+  // and touching anything calls it off
+  await page.mouse.click(20, 20);
+  await sleep(400);
+  expect('idle pulse cleared on interaction', await page.evaluate(
+    () => document.querySelectorAll('.glass.highlight').length), 0);
 
   // wrong drops escalate: glass 1 is half full; the Full tray rejects it.
   // 1st miss — just the shake: no dialogue, no glow, no ghost demo
@@ -108,6 +119,14 @@ function expect(label, actual, wanted) {
     () => document.getElementById('agni-text').textContent.includes('This glass is half full'),
     { timeout: 8000 });
   expect('dialogue after 2nd wrong attempt', true, true);
+  // the bubble names the glass and stops; the instruction is voice-only. Wait
+  // for the whole sentence — the line types out, so a substring match lands
+  // before the final full stop has been typed.
+  await page.waitForFunction(
+    () => document.getElementById('agni-text').textContent.trim() === 'This glass is half full.',
+    { timeout: 8000 });
+  expect('wrong-drop bubble omits the spoken instruction', await page.evaluate(
+    () => document.getElementById('agni-text').textContent.trim()), 'This glass is half full.');
   // ...together with the glass pulsing, but no tray light and no ghost demo yet
   expect('glass pulses after 2nd wrong attempt', await page.evaluate(() =>
     !!document.querySelector('.glass.highlight')), true);

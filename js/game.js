@@ -381,10 +381,10 @@
   /* a quick hint spoken by Agni through his speech bubble, then dismissed;
      cancels any pending tutorial line so it can't overwrite the hint */
   var hintTimer = null;
-  function agniSays(text) {
+  function agniSays(text, voText) {
     if (hintTimer) hintTimer.kill();
     clearTutTimers();
-    showTutMascot(text);
+    showTutMascot(text, null, null, voText);
     hintTimer = gsap.delayedCall(4.5, function () { hideTutMascot(); }); /* long enough for the spoken line */
   }
 
@@ -393,33 +393,56 @@
   }
 
   /* ---------- inactivity nudge ----------
-     if the player goes quiet for ~9s while the game is waiting on them,
-     Agni gently reminds them what to do (and repeats if they stay idle) */
-  var idleCall = null, idleWatch = false;
+     if the player goes quiet while the game is waiting on them, ONE glass
+     starts pulsing to draw the eye back (and repeats if they stay idle).
+     Deliberately just the pulse: running the ghost demo here as well put two
+     competing animations on screen at once. */
+  var IDLE_DELAY = 18;
+  var idleCall = null, idleWatch = false, idleGlass = null;
+
+  /* the nudge is over the moment they touch anything */
+  function clearIdlePulse() {
+    if (!idleGlass) return;
+    var g = idleGlass;
+    idleGlass = null;
+    g.el.classList.remove('highlight');
+    gsap.killTweensOf(g.img, 'scale');
+    gsap.to(g.img, { scale: 1, duration: 0.2, overwrite: 'auto' });
+  }
+
   function armIdleNudge() {
+    clearIdlePulse();
     if (!idleWatch) return; /* nothing to nudge on the title or win screen */
     if (idleCall) idleCall.kill();
-    idleCall = gsap.delayedCall(9, idleNudge);
+    idleCall = gsap.delayedCall(IDLE_DELAY, idleNudge);
   }
   function startIdleWatch() { idleWatch = true; armIdleNudge(); }
   function stopIdleWatch() {
     idleWatch = false;
+    clearIdlePulse();
     if (idleCall) { idleCall.kill(); idleCall = null; }
   }
   function idleNudge() {
     armIdleNudge(); /* keep watching — nudge again if they stay idle */
     if (state.locked) return;
+    var g = null, i;
     if (state.phase === 1) {
-      /* quiet visual nudge: a ghost glass demos the next move (skip if a
-         demo is already running from the tutorial or a wrong-drop hint) */
-      if (state.placed >= START_GLASSES.length || ghostTl) return;
-      for (var i = 0; i < state.glasses.length; i++) {
-        if (!state.glasses[i].placed) { startHandDemo(state.glasses[i]); break; }
+      if (state.placed >= START_GLASSES.length) return;
+      for (i = 0; i < state.glasses.length; i++) {
+        if (!state.glasses[i].placed) { g = state.glasses[i]; break; }
       }
     } else if (state.strawTapped && state.lemonTapped && state.demand) {
-      hintServe(); /* the glasses matching the order glow */
+      for (i = 0; i < state.glasses.length; i++) {
+        if (!state.glasses[i].placed && state.glasses[i].type === state.demand) { g = state.glasses[i]; break; }
+      }
     }
     /* garnish step needs nothing extra — the untapped boxes already glow */
+    if (!g) return;
+    /* clear whatever the tutorial or an earlier miss left running, so the
+       idle state is exactly one pulsing glass and nothing else */
+    stopSortHint();
+    idleGlass = g;
+    pulseGlass(g);
   }
   document.addEventListener('pointerdown', armIdleNudge);
 
@@ -447,11 +470,34 @@
   /* reveal the line one character at a time, with a soft blip per letter.
      onDone (optional) fires the moment the full line has been typed; marks
      (optional) is a list of {at, fn} fired as the typing reaches that
-     character, so a cue can land on the words that describe it. */
-  function typewrite(text, startDelay, onDone, marks) {
+     character, so a cue can land on the words that describe it; voText
+     (optional) is the spoken line when it differs from the shown one. */
+  var TYPE_CHAR = 0.045, TYPE_SPACE = 0.02;   /* unvoiced fallback rate */
+
+  /* Letters are paced to the recorded voice rather than a fixed rate: at the
+     flat 45ms/char the bubble finished about twice as early as Agni's clip and
+     then sat there fully typed while he was still talking. When the bubble
+     shows only part of the spoken line (the wrong-drop nudge shows just the
+     naming sentence), take that line's share of the clip. */
+  function typeRate(text, voSrc, voText) {
+    var chars = 0, spaces = 0;
+    for (var i = 0; i < text.length; i++) {
+      if (text.charAt(i) === ' ') spaces++; else chars++;
+    }
+    var natural = chars * TYPE_CHAR + spaces * TYPE_SPACE;
+    var dur = SFX.voiceDuration(voSrc);
+    if (!dur || !natural) return { ch: TYPE_CHAR, sp: TYPE_SPACE };
+    var share = (voText && voText !== text) ? text.length / voText.length : 1;
+    /* finish just shy of the clip so the last word lands with his voice */
+    var k = gsap.utils.clamp(0.8, 4, dur * 0.9 * share / natural);
+    return { ch: TYPE_CHAR * k, sp: TYPE_SPACE * k };
+  }
+
+  function typewrite(text, startDelay, onDone, marks, voText) {
     if (typeCall) { typeCall.kill(); typeCall = null; }
     tutMascotText.textContent = '';
     var pending = marks ? marks.slice() : null;
+    var rate = typeRate(text, VO[voText || text], voText);
     var i = 0;
     function step() {
       while (pending && pending.length && pending[0].at <= i) pending.shift().fn();
@@ -464,12 +510,13 @@
       tutMascotText.textContent += ch;
       i += 1;
       if (ch !== ' ' && !lineVoiced) SFX.play('type'); /* the voice-over replaces the blips */
-      typeCall = gsap.delayedCall(ch === ' ' ? 0.02 : 0.045, step);
+      typeCall = gsap.delayedCall(ch === ' ' ? rate.sp : rate.ch, step);
     }
     typeCall = gsap.delayedCall(startDelay || 0, step);
   }
 
-  function showTutMascot(text, onDone, marks) {
+  /* voText: the recorded line, when the bubble shows less than he says */
+  function showTutMascot(text, onDone, marks, voText) {
     /* one message at a time: the order bubble would sit behind the bar, so
        it steps aside while Agni talks and comes back when he is done */
     if (state.phase === 2 && state.demand && !demandHiddenByBar) {
@@ -486,15 +533,15 @@
       gsap.fromTo(agniBubble, { autoAlpha: 0, scale: 0.4 },
         { autoAlpha: 1, scale: 1, duration: 0.45, ease: 'back.out(2)', delay: 0.3,
           transformOrigin: '0% 100%' }); /* grows out of the tail, by his head */
-      speakLine(text, 0.65);
-      typewrite(text, 0.65, onDone, marks); /* type once the bubble is open */
+      speakLine(voText || text, 0.65);
+      typewrite(text, 0.65, onDone, marks, voText); /* type once the bubble is open */
     } else {
       /* already on screen — the bubble pops and the new line types in */
       SFX.play('ask');
       gsap.fromTo(agniBubble, { scale: 0.94 },
         { scale: 1, duration: 0.3, ease: 'back.out(2.4)', transformOrigin: '0% 100%' });
-      speakLine(text, 0.2);
-      typewrite(text, 0.2, onDone, marks);
+      speakLine(voText || text, 0.2);
+      typewrite(text, 0.2, onDone, marks, voText);
     }
     /* friendly wiggle as he talks */
     gsap.fromTo(agniImg, { rotation: -1.6 },
@@ -1069,7 +1116,10 @@
     state.wrongStreak += 1;
     if (state.wrongStreak >= 2) {
       pulseGlass(g);
-      agniSays('This glass is ' + TYPE_NAMES[g.type] + '. Put it in the correct tray.');
+      /* the bubble names the glass and stops there — "Put it in the correct
+         tray" is still spoken, it just does not crowd the speech box */
+      agniSays('This glass is ' + TYPE_NAMES[g.type] + '.',
+        'This glass is ' + TYPE_NAMES[g.type] + '. Put it in the correct tray.');
     }
     if (state.wrongStreak >= 3) {
       clearZoneHints();
@@ -1141,6 +1191,7 @@
   var CONFETTI_GLYPHS = ['🎃', '👻', '🦇', '⭐', '🍬', '🍭'];
 
   function confettiBurst(count) {
+    SFX.play('confetti'); /* poppers + fluttering paper, per burst */
     for (var i = 0; i < count; i++) {
       var c = document.createElement('div');
       c.className = 'confetti';
@@ -1247,14 +1298,17 @@
     if (gameStarted || !window.PRELOAD.done) return;
     gameStarted = true;
     SFX.unlock();
-    SFX.play('click');
+    SFX.play('press');
     gsap.killTweensOf(playBtn);
     gsap.to(playBtn, { scale: 0.85, duration: 0.12, yoyo: true, repeat: 1, ease: 'power2.inOut' });
     gsap.delayedCall(0.25, function () {
+      /* the scene is only PARKED under the wave; its entrance plays once the
+         wave has drained, so the player actually watches the trays arrive and
+         the glasses being set out rather than finding them already there */
       splashTransition(function () {
         titleScreen.style.display = 'none';
-        intro(); /* scene builds itself as the wave lifts */
-      }, null);
+        introSetup();
+      }, intro);
     });
   }
   playBtn.addEventListener('pointerdown', startGame);
@@ -1274,25 +1328,44 @@
 
   /* ---------- intro ---------- */
 
+  /* park the scene in its pre-entrance state. Called while the splash still
+     covers the stage, so nothing flashes into place before it animates in —
+     the entrance itself then plays on a fully visible screen. */
+  function introSetup() {
+    gsap.set('#trays', { y: 220, autoAlpha: 0 });
+    gsap.set([plaqueEls.empty, plaqueEls.half, plaqueEls.full], { y: -40, autoAlpha: 0, scale: 0.6 });
+    gsap.set(state.glasses.map(function (g) { return g.el; }), { scale: 0 });
+  }
+
   function intro() {
     state.locked = true; /* no dragging until Agni finishes the tutorial */
     startIdleWatch();    /* only now is there anything to be idle at */
     var tl = gsap.timeline();
-    tl.from('#trays', { y: 220, autoAlpha: 0, duration: 0.7, ease: 'power3.out' }, 0.2)
-      .from([plaqueEls.empty, plaqueEls.half, plaqueEls.full],
-        { y: -40, autoAlpha: 0, scale: 0.6, duration: 0.55, ease: 'back.out(2)', stagger: 0.12 }, 0.55)
-      .from(state.glasses.map(function (g) { return g.el; }),
-        { scale: 0, duration: 0.5, ease: 'back.out(2.2)', stagger: 0.06 }, 0.8)
+    tl.to('#trays', { y: 0, autoAlpha: 1, duration: 0.7, ease: 'power3.out' }, 0.2)
+      .to([plaqueEls.empty, plaqueEls.half, plaqueEls.full],
+        { y: 0, autoAlpha: 1, scale: 1, duration: 0.55, ease: 'back.out(2)', stagger: 0.12 }, 0.55)
+      /* the nine tumblers tick onto the shelf, one ting per glass */
+      .add(function () { SFX.play('shelf'); }, 0.8)
+      .to(state.glasses.map(function (g) { return g.el; }),
+        { scale: 1, duration: 0.5, ease: 'back.out(2.2)', stagger: 0.06 }, 0.8)
       .add(function () { state.glasses.forEach(startIdle); });
 
     /* Agni speaks every line, then steps aside for the hands-on step (all
        skipped if the player just dives in and drops a glass). The first line
        waits ~1.5s so the scene has settled before the bar drops in. */
     tutLater(1.5, function () { showTutMascot(TUT[0]); });
-    tutLater(5.4, function () { showTutMascot(TUT[1]); });
+    tutLater(5.4, function () {
+      /* "Let us sort the glasses into trays" — all three trays light up so the
+         player sees the three destinations before any one of them is singled
+         out (and well before the ghost demo starts) */
+      showTutMascot(TUT[1]);
+      hintZone('empty'); hintZone('half'); hintZone('full');
+    });
     tutLater(8.8, function () {
-      /* the glass lights up as Agni names it ("This glass is empty"), and the
-         tray only joins in when he says where to put it */
+      /* narrow from all three to the one he is about to name: the glass lights
+         up as Agni says "This glass is empty", and the tray only joins in when
+         he says where to put it */
+      clearZoneHints();
       highlightEmptyGlass();
       showTutMascot(TUT[2], null, [
         { at: TUT[2].indexOf('Put it'), fn: function () { hintZone('empty'); } }

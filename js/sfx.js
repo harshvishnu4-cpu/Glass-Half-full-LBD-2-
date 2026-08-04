@@ -316,17 +316,53 @@
     land: function (t) {
       thud(t, 0.11);
     },
-    /* all sorted: bell run up the A-minor arpeggio + ghost choir + confetti pops */
+    /* all sorted: bell run up the A-minor arpeggio + ghost choir. The paper
+       pops that used to live here are now the 'confetti' cue, which fires
+       with the burst itself rather than being faked in the fanfare */
     win: function (t) {
       [440, 523.25, 659.25, 880, 1046.5, 1318.5, 1760].forEach(function (f, i) {
         bell(f, t + i * 0.09, 0.13, 1.1);
       });
       choir(t + 0.35);
-      for (var i = 0; i < 6; i++) pop(t + 0.4 + Math.random() * 1.4, 0.07);
     },
     click: function (t) {
       pop(t, 0.12);
       bell(660, t, 0.06, 0.3);
+    },
+    /* Play button: a big, springy bubble-pop — the game's opening beat, so it
+       is deliberately louder and rounder than the general-purpose click */
+    press: function (t) {
+      var o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(210, t);
+      o.frequency.exponentialRampToValueAtTime(920, t + 0.085);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.4, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + 0.22);
+      pop(t, 0.22);
+      bell(1318.5, t + 0.04, 0.13, 0.5);
+    },
+    /* the nine tumblers being set out on the shelf: a rising run of glass
+       tings, one per glass, spaced to match the 0.06s entrance stagger */
+    shelf: function (t) {
+      [523.25, 587.33, 659.25, 698.46, 783.99, 880, 987.77, 1046.5, 1174.66]
+        .forEach(function (f, i) {
+          var at = t + i * 0.06;
+          bell(f * 2, at, 0.17, 0.55);  /* bright rim ting */
+          pop(at, 0.08);                /* the base tapping down */
+        });
+    },
+    /* party poppers + paper fluttering down, fired with every confetti burst */
+    confetti: function (t) {
+      for (var i = 0; i < 5; i++) {
+        var at = t + i * 0.07 + Math.random() * 0.04;
+        pop(at, 0.2);
+        blip(900 + Math.random() * 500, 400, at, 0.07, 0.09);
+      }
+      sweep(3000, 900, t + 0.1, 0.7, 0.07);
     },
     /* customers waddle in: little footstep thuds + a springy boing */
     arrive: function (t) {
@@ -449,6 +485,13 @@
       if (p && p.catch) p.catch(function () { /* not unlocked yet */ });
     },
     voicePlaying: function () { return !!(voiceNow && !voiceNow.paused && !voiceNow.ended); },
+    /* how long a recorded line runs, so the typewriter can be paced to it.
+       0 until the clip's metadata has loaded (preloadVoices warms them long
+       before the first line), which the caller treats as "use the old rate" */
+    voiceDuration: function (src) {
+      var v = src && voiceClips[src];
+      return v && isFinite(v.duration) ? v.duration : 0;
+    },
     /* warm the browser cache so the first line speaks without a hitch */
     preloadVoices: function (list) { list.forEach(getVoice); },
     /* fade the background music out (e.g. so the end-screen video's own
