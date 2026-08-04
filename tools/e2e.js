@@ -256,30 +256,31 @@ function expect(label, actual, wanted) {
     await dragTo(await glassIdxOf(demand), '#zone-customer');
     await page.waitForFunction((n) => window.__game.served === n + 1, { timeout: 6000 }, before);
     if (before === 0) {
-      // the coin comes to rest on the bare wooden counter strip in front of the
-      // customer — between the ledge lip (y=650) and the front of the trays
-      // (y=750) — not down among the trays or off at the counter's left margin.
+      // the coin comes to rest ON the counter top: its BASE must land on the
+      // same line the level-1 glasses stand on (SHELF_BOTTOM = 621), not
+      // floating against the counter's front panel below it.
       // Shoot the counter while the coin is still sitting there (it settles
       // ~1.3s in and is cleared ~1.9s in) so the spot is visible in the shots.
       await page.waitForFunction(() => !!document.querySelector('.coin-fly'), { timeout: 8000 });
       await sleep(1250);
       await page.screenshot({ path: path.join(SHOTS, '3d-coin.png'),
         clip: { x: 0, y: 560, width: 1920, height: 260 } });
-      const rest = await page.evaluate(() => new Promise((done) => {
-        let last = null;
-        const iv = setInterval(() => {
-          const c = document.querySelector('.coin-fly');
-          if (c) {
-            const m = new DOMMatrixReadOnly(getComputedStyle(c).transform);
-            last = { x: Math.round(m.e), y: Math.round(m.f) };
-          } else if (last) { clearInterval(iv); done(last); }
-        }, 40);
-        setTimeout(() => { clearInterval(iv); done(last); }, 6000);
-      }));
-      expect('coin rests on the counter strip', rest &&
-        Math.abs(rest.x - 914) <= 100 && rest.y > 620 && rest.y + 92 < 770
+      // Sample the SETTLED pose, not the last frame before removal: collecting
+      // the coin lifts it 22px as it fades, so tracking to disappearance reads
+      // 22px high and would fail a correct landing. y is flat from 0.95s to
+      // 1.63s into the flight, so this 1250ms mark is the resting position.
+      const rest = await page.evaluate(() => {
+        const c = document.querySelector('.coin-fly');
+        if (!c) return null;
+        const m = new DOMMatrixReadOnly(getComputedStyle(c).transform);
+        return { x: Math.round(m.e), y: Math.round(m.f), h: Math.round(c.getBoundingClientRect().height) };
+      });
+      // rest.y is the coin's TOP; it is 62 tall, so base = y + 62 must be 621
+      expect('coin base rests on the counter top', rest &&
+        Math.abs(rest.x - 914) <= 100 && Math.abs(rest.y + 62 - 621) <= 6
         ? 'yes' : 'no @ ' + JSON.stringify(rest), 'yes');
-      console.log('   coin came to rest at ' + JSON.stringify(rest));
+      console.log('   coin rest: top y=' + (rest && rest.y) + ', height=' + (rest && rest.h) +
+        ', base y=' + (rest && rest.y + 62) + ' (counter top = 621)');
     }
     await page.waitForFunction(
       () => window.__game.demand !== null || window.__game.served === 6, { timeout: 10000 });

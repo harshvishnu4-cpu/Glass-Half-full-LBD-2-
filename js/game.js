@@ -865,18 +865,17 @@
   }
 
   /* the customer's coin arcs onto the counter, then is collected (vanishes).
-     It lands on the bare wooden counter strip in front of the customer — the
-     band between the ledge lip (y=650) and the front of the trays (y=750), so
-     the 92px coin sits squarely on the wood rather than down among the trays.
-     Small horizontal spread so consecutive coins don't stack in one spot. */
-  var COIN_H = 92;                 /* .coin-fly is 92px wide and near-square */
-  var COIN_LEDGE = 650, COIN_TRAYS = 750;
+     It comes to rest ON the counter top: its BASE sits on SHELF_BOTTOM, the
+     exact line the glasses stand on in level 1, so the coin reads as set down
+     on the bar. Aligning by the base matters — the art is 184x123, so at the
+     CSS width of 92 the coin is only 62 tall, and positioning by anything but
+     its base left it floating against the counter's front panel instead.
+     Small spread so consecutive coins don't stack in one spot. */
+  var COIN_H = 62;                 /* 92px wide / 184x123 art => 62 tall */
   function giveCoin() {
     state.coins += 1;
     var lx = SERVE_X - 46 + gsap.utils.random(-90, 90);
-    /* centre the coin in the strip: top = midpoint - half its height */
-    var mid = (COIN_LEDGE + COIN_TRAYS) / 2 - COIN_H / 2;
-    var ly = mid + gsap.utils.random(-10, 10);
+    var ly = SHELF_BOTTOM - COIN_H + gsap.utils.random(-3, 3);
     var coin = document.createElement('img');
     coin.src = ASSET('assets/img/coins.webp');
     coin.className = 'coin-fly';
@@ -885,8 +884,8 @@
     gsap.timeline({ onComplete: function () { coin.remove(); } })
       .set(coin, { x: SERVE_X - 46, y: 430, scale: 0.4, autoAlpha: 0, transformOrigin: '50% 100%' })
       .to(coin, { autoAlpha: 1, scale: 1, duration: 0.2, ease: 'back.out(2)' })
-      /* tossed up out of their hands, then down onto the counter */
-      .to(coin, { keyframes: { y: [430, 388, ly] }, duration: 0.7, ease: 'power1.inOut' }, 0.25)
+      /* tossed up out of their hands, then down onto the counter top */
+      .to(coin, { keyframes: { y: [430, 366, ly] }, duration: 0.7, ease: 'power1.inOut' }, 0.25)
       .to(coin, { x: lx, rotation: gsap.utils.random(-20, 20), duration: 0.7, ease: 'power1.inOut' }, 0.25)
       /* it lands with a squash and settles */
       .to(coin, { scaleY: 0.8, scaleX: 1.12, duration: 0.09, ease: 'power1.in' }, 0.95)
