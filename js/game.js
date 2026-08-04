@@ -393,21 +393,23 @@
   }
 
   /* ---------- inactivity nudge ----------
-     if the player goes quiet while the game is waiting on them, ONE glass
-     starts pulsing to draw the eye back (and repeats if they stay idle).
+     if the player goes quiet while the game is waiting on them, the glasses
+     start pulsing to draw the eye back (and repeat if they stay idle).
      Deliberately just the pulse: running the ghost demo here as well put two
      competing animations on screen at once. */
-  var IDLE_DELAY = 18;
-  var idleCall = null, idleWatch = false, idleGlass = null;
+  var IDLE_DELAY = 12;   /* seconds of no input; wanted in the 10-15s band */
+  var idleCall = null, idleWatch = false, idlePulsed = [];
 
   /* the nudge is over the moment they touch anything */
   function clearIdlePulse() {
-    if (!idleGlass) return;
-    var g = idleGlass;
-    idleGlass = null;
-    g.el.classList.remove('highlight');
-    gsap.killTweensOf(g.img, 'scale');
-    gsap.to(g.img, { scale: 1, duration: 0.2, overwrite: 'auto' });
+    if (!idlePulsed.length) return;
+    var list = idlePulsed;
+    idlePulsed = [];
+    list.forEach(function (g) {
+      g.el.classList.remove('highlight');
+      gsap.killTweensOf(g.img, 'scale');
+      gsap.to(g.img, { scale: 1, duration: 0.2, overwrite: 'auto' });
+    });
   }
 
   function armIdleNudge() {
@@ -425,24 +427,29 @@
   function idleNudge() {
     armIdleNudge(); /* keep watching — nudge again if they stay idle */
     if (state.locked) return;
-    var g = null, i;
+    var list = [], i;
     if (state.phase === 1) {
+      /* sorting: one glass is enough to say "pick one of these up" */
       if (state.placed >= START_GLASSES.length) return;
       for (i = 0; i < state.glasses.length; i++) {
-        if (!state.glasses[i].placed) { g = state.glasses[i]; break; }
+        if (!state.glasses[i].placed) { list.push(state.glasses[i]); break; }
       }
     } else if (state.strawTapped && state.lemonTapped && state.demand) {
+      /* serving: EVERY glass left on the trays, not just the ones matching the
+         order — pulsing only the correct set would hand over the answer, and
+         answering is what the two-miss hint is for. This only says "these are
+         the things you can drag". */
       for (i = 0; i < state.glasses.length; i++) {
-        if (!state.glasses[i].placed && state.glasses[i].type === state.demand) { g = state.glasses[i]; break; }
+        if (!state.glasses[i].placed) list.push(state.glasses[i]);
       }
     }
     /* garnish step needs nothing extra — the untapped boxes already glow */
-    if (!g) return;
-    /* clear whatever the tutorial or an earlier miss left running, so the
-       idle state is exactly one pulsing glass and nothing else */
+    if (!list.length) return;
+    /* clear whatever the tutorial or an earlier miss left running, so the idle
+       state is only ever this pulse and nothing else */
     stopSortHint();
-    idleGlass = g;
-    pulseGlass(g);
+    idlePulsed = list;
+    list.forEach(pulseGlass);
   }
   document.addEventListener('pointerdown', armIdleNudge);
 
@@ -858,11 +865,14 @@
   }
 
   /* the customer's coin arcs onto the counter, then is collected (vanishes).
-     it lands on the clear left margin so it never overlaps the centred trays */
+     It drops onto the shelf right where the drink was handed over — the gap
+     between the two centred trays — and is collected on the spot. It used to
+     sail all the way across to the far-left margin of the counter, which read
+     as the coin wandering off rather than being taken in. */
   function giveCoin() {
     state.coins += 1;
-    var lx = gsap.utils.random(70, 220);
-    var ly = gsap.utils.random(945, 1000);
+    var lx = SERVE_X - 46 + gsap.utils.random(-52, 52);
+    var ly = gsap.utils.random(950, 1000);
     var coin = document.createElement('img');
     coin.src = ASSET('assets/img/coins.webp');
     coin.className = 'coin-fly';
@@ -871,12 +881,15 @@
     gsap.timeline({ onComplete: function () { coin.remove(); } })
       .set(coin, { x: SERVE_X - 46, y: 430, scale: 0.4, autoAlpha: 0, transformOrigin: '50% 100%' })
       .to(coin, { autoAlpha: 1, scale: 1, duration: 0.2, ease: 'back.out(2)' })
-      .to(coin, { keyframes: { y: [430, 300, ly] }, duration: 0.9, ease: 'power1.inOut' }, 0.25)
-      .to(coin, { x: lx, rotation: gsap.utils.random(-20, 20), duration: 0.9, ease: 'power1.inOut' }, 0.25)
-      .to(coin, { scaleY: 0.85, duration: 0.08, yoyo: true, repeat: 1, ease: 'power1.inOut' }, 1.15)
-      /* collected! */
-      .add(function () { burstSparks(lx + 46, ly + 30); }, '+=0.45')
-      .to(coin, { autoAlpha: 0, scale: 0.45, y: '-=20', duration: 0.3, ease: 'power2.in' }, '<');
+      /* tossed up out of their hands, then down onto the shelf */
+      .to(coin, { keyframes: { y: [430, 372, ly] }, duration: 0.75, ease: 'power1.inOut' }, 0.25)
+      .to(coin, { x: lx, rotation: gsap.utils.random(-20, 20), duration: 0.75, ease: 'power1.inOut' }, 0.25)
+      /* it lands with a squash and settles */
+      .to(coin, { scaleY: 0.8, scaleX: 1.12, duration: 0.09, ease: 'power1.in' }, 1.0)
+      .to(coin, { scaleY: 1, scaleX: 1, duration: 0.24, ease: 'elastic.out(1.4, 0.5)' })
+      /* collected, right where it came to rest */
+      .add(function () { burstSparks(lx + 46, ly + 30); }, '+=0.35')
+      .to(coin, { autoAlpha: 0, scale: 0.45, y: ly - 22, duration: 0.3, ease: 'power2.in' }, '<');
   }
 
   function serveGlass(g) {
@@ -1226,8 +1239,26 @@
 
   /* ---------- win ---------- */
 
-  /* The game ends here: the celebration video plays once and the final frame
-     stays on screen. Nothing navigates away and there is no replay button. */
+  /* Once the ~4s clip has run, hold the celebration instead of freezing on the
+     last frame: a slow push-in, confetti showers rolling in on a loop, and the
+     music bed fading back up (the video's own audio had taken the stage). Runs
+     once — either when the video ends or, if it never plays, on a watchdog. */
+  var celebrating = false;
+  function sustainCelebration() {
+    if (celebrating) return;
+    celebrating = true;
+    SFX.unlock();  /* stopMusic() cleared the track, so this starts it fresh */
+    var video = document.getElementById('win-bg');
+    if (video) gsap.to(video, { scale: 1.09, duration: 22, ease: 'none' });
+    (function shower() {
+      confettiBurst(26);
+      gsap.delayedCall(gsap.utils.random(2.4, 3.6), shower);
+    })();
+  }
+
+  /* The game ends here: the celebration video plays once, then sustainCelebration
+     keeps the final frame alive. Nothing navigates away and there is no replay
+     button. */
   function showWin() {
     SFX.play('win');
     confettiBurst(90);
@@ -1268,6 +1299,10 @@
       }, { once: true });
       var local = ASSET(VIDEO_FILE);
       if (local !== VIDEO_FILE) winVideo.src = local;
+      /* hold the celebration the moment the clip runs out; the watchdog covers
+         the case where playback was blocked outright and the poster stands in */
+      winVideo.addEventListener('ended', sustainCelebration, { once: true });
+      gsap.delayedCall(6.5, sustainCelebration);
       playVideo();
     }
   }

@@ -206,6 +206,12 @@ function expect(label, actual, wanted) {
   await dragTo(wrongIdx, '#zone-customer');
   await sleep(500);
   expect('served after wrong serve', await served(), 0);
+  // ONE miss must not give anything away: no glass may pulse and Agni stays
+  // quiet. Help only arrives on the second miss.
+  expect('no glass pulses after 1st wrong serve', await page.evaluate(
+    () => document.querySelectorAll('.glass.highlight').length), 0);
+  expect('no dialogue after 1st wrong serve', await page.evaluate(
+    () => document.getElementById('agni-text').textContent.startsWith('Pick a')), false);
   await dragTo(wrongIdx, '#zone-customer');
   await page.waitForFunction(
     () => document.getElementById('agni-text').textContent.startsWith('Pick a'), { timeout: 8000 });
@@ -225,6 +231,22 @@ function expect(label, actual, wanted) {
   }, { timeout: 12000 });
   expect('order bubble returns after the hint', true, true);
 
+  // idle in the serving half pulses EVERY glass left on the trays, both types.
+  // Pulsing only the ones matching the order would hand over the answer — that
+  // is what the two-miss hint is for, not an inactivity prompt.
+  await page.waitForFunction(() => {
+    const unplaced = window.__game.glasses.filter((g) => !g.placed).length;
+    return unplaced > 1 && document.querySelectorAll('.glass.highlight').length === unplaced;
+  }, { timeout: 26000 });
+  const idle2 = await page.evaluate(() => ({
+    lit: document.querySelectorAll('.glass.highlight').length,
+    unplaced: window.__game.glasses.filter((g) => !g.placed).length,
+    types: new Set(Array.from(document.querySelectorAll('.glass.highlight'))
+      .map((el) => el.dataset.type)).size
+  }));
+  expect('level 2 idle nudge pulses every glass', idle2.lit, idle2.unplaced);
+  expect('level 2 idle nudge reveals neither type', idle2.types, 2);
+
   // serve all 6 correctly
   let rounds = 0;
   while ((await served()) < 6 && rounds++ < 12) {
@@ -233,6 +255,23 @@ function expect(label, actual, wanted) {
     const before = await served();
     await dragTo(await glassIdxOf(demand), '#zone-customer');
     await page.waitForFunction((n) => window.__game.served === n + 1, { timeout: 6000 }, before);
+    if (before === 0) {
+      // the coin is collected ON the shelf, in the gap between the two centred
+      // trays — not sailing off to the far-left margin of the counter
+      const rest = await page.evaluate(() => new Promise((done) => {
+        let last = null;
+        const iv = setInterval(() => {
+          const c = document.querySelector('.coin-fly');
+          if (c) {
+            const m = new DOMMatrixReadOnly(getComputedStyle(c).transform);
+            last = { x: Math.round(m.e), y: Math.round(m.f) };
+          } else if (last) { clearInterval(iv); done(last); }
+        }, 40);
+        setTimeout(() => { clearInterval(iv); done(last); }, 6000);
+      }));
+      expect('coin is collected on the shelf', rest &&
+        Math.abs(rest.x - 914) <= 60 && rest.y > 900 ? 'yes' : 'no @ ' + JSON.stringify(rest), 'yes');
+    }
     await page.waitForFunction(
       () => window.__game.demand !== null || window.__game.served === 6, { timeout: 10000 });
   }
@@ -259,6 +298,16 @@ function expect(label, actual, wanted) {
     return !!v && !v.paused && !v.error;
   }), true);
   await sleep(6000); // past the ~4s clip
+  // the clip is short, so the end screen must not freeze on the last frame:
+  // confetti keeps showering and the frame keeps pushing in
+  expect('celebration still running after the clip ends', await page.evaluate(
+    () => document.querySelectorAll('.confetti').length > 0), true);
+  expect('end frame keeps pushing in', await page.evaluate(() => {
+    const m = new DOMMatrixReadOnly(getComputedStyle(document.getElementById('win-bg')).transform);
+    return m.a > 1.001;
+  }), true);
+  expect('music bed returns for the end screen', await page.evaluate(
+    () => window.SFX.musicPlaying()), true);
   expect('still on the end screen (no navigation)', page.url(), urlBefore);
   expect('win overlay still covering the game', await page.evaluate(() => {
     const s = getComputedStyle(document.getElementById('win-overlay'));
