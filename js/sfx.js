@@ -398,9 +398,20 @@
     type: function (t) {
       blip(650, 720, t, 0.03, 0.028);
     },
-    /* the customer pays: jingling coins fly to the counter */
+    /* the customer pays: jingling coins land on the counter. This is the
+       "you have been paid" beat — see 'collect' for the taking-it-in beat */
     coin: function () {
       playSample('coin', 0.75);
+    },
+    /* ...and the coin is taken in off the counter. A rising two-note chime and
+       a quick upward sweep, so vanishing sounds like being POCKETED rather than
+       just going quiet — deliberately unlike the 'coin' jingle that preceded
+       it, and much lighter than the till's 'kaching' finale. */
+    collect: function (t) {
+      pop(t, 0.07);
+      bell(1046.5, t, 0.12, 0.4);
+      bell(1567.98, t + 0.09, 0.1, 0.5);
+      sweep(1200, 3400, t, 0.24, 0.055);
     },
     /* the till rings when every customer has been served */
     kaching: function () {

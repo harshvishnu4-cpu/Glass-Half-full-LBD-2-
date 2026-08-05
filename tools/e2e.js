@@ -253,6 +253,16 @@ function expect(label, actual, wanted) {
     demand = await page.evaluate(() => window.__game.demand);
     if (!demand) { await sleep(400); continue; }
     const before = await served();
+    if (before === 0) {
+      // record every SFX cue through the first payment: the coin must announce
+      // itself when it is HANDED OVER and again when it is TAKEN IN — two
+      // separate beats, so a silent disappearance is a regression
+      await page.evaluate(() => {
+        window.__cues = [];
+        window.__sfxOrig = window.SFX.play;
+        window.SFX.play = function (n) { window.__cues.push(n); return window.__sfxOrig.call(window.SFX, n); };
+      });
+    }
     await dragTo(await glassIdxOf(demand), '#zone-customer');
     await page.waitForFunction((n) => window.__game.served === n + 1, { timeout: 6000 }, before);
     if (before === 0) {
@@ -281,6 +291,18 @@ function expect(label, actual, wanted) {
         ? 'yes' : 'no @ ' + JSON.stringify(rest), 'yes');
       console.log('   coin rest: top y=' + (rest && rest.y) + ', height=' + (rest && rest.h) +
         ', base y=' + (rest && rest.y + 62) + ' (counter top = 621)');
+
+      // the collect cue fires ~1.6s into the flight, as the coin fades out
+      await page.waitForFunction(() => !document.querySelector('.coin-fly'), { timeout: 6000 });
+      const cues = await page.evaluate(() => window.__cues.slice());
+      expect('coin announces the payment', cues.indexOf('coin') !== -1, true);
+      expect('coin announces being collected', cues.indexOf('collect') !== -1, true);
+      expect('payment and collection are separate cues',
+        cues.indexOf('coin') !== -1 && cues.indexOf('collect') > cues.indexOf('coin'), true);
+      console.log('   cues through the first payment: ' + cues.join(', '));
+      // put the real SFX.play back — leaving the wrapper in place while dropping
+      // the array it writes to makes every later cue throw
+      await page.evaluate(() => { window.SFX.play = window.__sfxOrig; });
     }
     await page.waitForFunction(
       () => window.__game.demand !== null || window.__game.served === 6, { timeout: 10000 });

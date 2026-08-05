@@ -890,8 +890,12 @@
       /* it lands with a squash and settles */
       .to(coin, { scaleY: 0.8, scaleX: 1.12, duration: 0.09, ease: 'power1.in' }, 0.95)
       .to(coin, { scaleY: 1, scaleX: 1, duration: 0.24, ease: 'elastic.out(1.4, 0.5)' })
-      /* collected, right where it came to rest */
-      .add(function () { burstSparks(lx + 46, ly + COIN_H / 2); }, '+=0.35')
+      /* collected, right where it came to rest — its own cue, so the coin
+         being TAKEN IN is a separate beat from the jingle that paid it */
+      .add(function () {
+        SFX.play('collect');
+        burstSparks(lx + 46, ly + COIN_H / 2);
+      }, '+=0.35')
       .to(coin, { autoAlpha: 0, scale: 0.45, y: ly - 22, duration: 0.3, ease: 'power2.in' }, '<');
   }
 
