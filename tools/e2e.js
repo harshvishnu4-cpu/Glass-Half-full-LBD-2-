@@ -272,19 +272,19 @@ function expect(label, actual, wanted) {
       // Shoot the counter while the coin is still sitting there (it settles
       // ~1.3s in and is cleared ~1.9s in) so the spot is visible in the shots.
       await page.waitForFunction(() => !!document.querySelector('.coin-fly'), { timeout: 8000 });
-      await sleep(1250);
-      await page.screenshot({ path: path.join(SHOTS, '3d-coin.png'),
-        clip: { x: 0, y: 560, width: 1920, height: 260 } });
-      // Sample the SETTLED pose, not the last frame before removal: collecting
-      // the coin lifts it 22px as it fades, so tracking to disappearance reads
-      // 22px high and would fail a correct landing. y is flat from 0.95s to
-      // 1.63s into the flight, so this 1250ms mark is the resting position.
+      await sleep(1100);
+      // MEASURE FIRST, screenshot after. y is flat only between 0.95s and 1.63s
+      // of the flight — after that, collecting the coin lifts it 22px as it
+      // fades. A screenshot costs a few hundred ms, so taking it before the
+      // sample pushed the reading into the lift and failed a correct landing.
       const rest = await page.evaluate(() => {
         const c = document.querySelector('.coin-fly');
         if (!c) return null;
         const m = new DOMMatrixReadOnly(getComputedStyle(c).transform);
         return { x: Math.round(m.e), y: Math.round(m.f), h: Math.round(c.getBoundingClientRect().height) };
       });
+      await page.screenshot({ path: path.join(SHOTS, '3d-coin.png'),
+        clip: { x: 0, y: 560, width: 1920, height: 260 } });
       // rest.y is the coin's TOP; it is 62 tall, so base = y + 62 must be 621
       expect('coin base rests on the counter top', rest &&
         Math.abs(rest.x - 914) <= 100 && Math.abs(rest.y + 62 - 621) <= 6

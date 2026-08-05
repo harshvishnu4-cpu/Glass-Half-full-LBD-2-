@@ -260,9 +260,13 @@
     o.start(when); o.stop(when + dur + 0.05);
   }
 
-  /* sample-based cues (ogg files); cloned per play so they can overlap */
+  /* sample-based cues (ogg files); cloned per play so they can overlap.
+     stopAfter (seconds, optional) fades the clip out early. Some samples run far
+     longer than the beat they punctuate — cash-register.ogg rings on quietly to
+     2.0s against a 1.9s coin flight — and a long tail swallows the cue that
+     comes next. Fades over ~200ms so cutting never clicks. */
   var samples = {};
-  function playSample(name, vol) {
+  function playSample(name, vol, stopAfter) {
     var base = samples[name];
     if (!base) {
       base = new Audio(resolve('audio/' + name + '.ogg'));
@@ -273,6 +277,17 @@
     inst.volume = vol;
     var p = inst.play();
     if (p && p.catch) p.catch(function () { /* not unlocked yet */ });
+    if (stopAfter) {
+      setTimeout(function () {
+        var step = vol / 8;                       /* ~200ms fade, no click */
+        var fade = setInterval(function () {
+          var v = inst.volume - step;
+          if (v <= 0) { clearInterval(fade); inst.volume = 0; inst.pause(); return; }
+          inst.volume = v;
+        }, 25);
+      }, stopAfter * 1000);
+    }
+    return inst;
   }
 
   /* recorded voice-over lines (ogg); only one speaks at a time */
@@ -398,20 +413,21 @@
     type: function (t) {
       blip(650, 720, t, 0.03, 0.028);
     },
-    /* the customer pays: jingling coins land on the counter. This is the
-       "you have been paid" beat — see 'collect' for the taking-it-in beat */
+    /* The customer pays — the till registers it. Cut at 1.05s: the ka-ching
+       itself runs 0.2-1.0s and everything after is a quiet ring-out to 2.0s,
+       which would still be sounding when 'collect' fires 1.6s into the coin
+       flight. Cutting the tail keeps the two beats separate.
+       (The clip also opens with 0.2s of silence, which lands the ka-ching just
+       as the coin finishes fading in — left alone deliberately.) */
     coin: function () {
-      playSample('coin', 0.75);
+      playSample('cash-register', 0.8, 1.05);
     },
-    /* ...and the coin is taken in off the counter. A rising two-note chime and
-       a quick upward sweep, so vanishing sounds like being POCKETED rather than
-       just going quiet — deliberately unlike the 'coin' jingle that preceded
-       it, and much lighter than the till's 'kaching' finale. */
-    collect: function (t) {
-      pop(t, 0.07);
-      bell(1046.5, t, 0.12, 0.4);
-      bell(1567.98, t + 0.09, 0.1, 0.5);
-      sweep(1200, 3400, t, 0.24, 0.055);
+    /* ...and the coin is taken in off the counter — its own clip, so vanishing
+       reads as being POCKETED rather than just going quiet. Only the first 0.9s
+       carries sound (the file is padded with 2.1s of silence), so the 1.0s cut
+       loses nothing audible and stops the element idling through the padding. */
+    collect: function () {
+      playSample('coin-disappear', 0.85, 1.0);
     },
     /* the till rings when every customer has been served */
     kaching: function () {

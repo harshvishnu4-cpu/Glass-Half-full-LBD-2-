@@ -58,9 +58,14 @@ need no asset files. The palette is "spooky, but friendly": a ghostly rise when
 you grab a glass, minor-key sparkle bells on a correct drop, a cartoon
 womp-womp on a wrong one, and a bell run with a ghost-choir pad for the win —
 over a soft night ambience of wind and a distant owl. `audio/` holds the pieces
-that cannot be synthesized: Agni's recorded voice-over lines, the coin jingle,
-the till, and the looping music bed. Audio starts on the first tap or click
-(browser autoplay policy).
+that cannot be synthesized: Agni's recorded voice-over lines, the two coin beats
+(`cash-register.ogg` when a customer pays, `coin-disappear.ogg` when the coin is
+taken off the counter), and the looping music bed. Audio starts on the first tap
+or click (browser autoplay policy).
+
+Sample cues can be cut short — `playSample(name, vol, stopAfter)` fades a clip
+out early. Both coin clips use it: they would otherwise still be ringing when the
+next cue fires, and the two beats would blur into one.
 
 ## Testing
 

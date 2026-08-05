@@ -28,7 +28,8 @@ const files = [];
 })(SCAN_DIRS[1]);
 
 // a file counts as referenced if code mentions its basename, or its stem —
-// some paths are built dynamically, e.g. playSample('coin') -> audio/coin.ogg
+// some paths are built dynamically, e.g. playSample('cash-register') resolves
+// to audio/cash-register.ogg, so match on the bare stem as well as the basename
 const unreferenced = files.filter((f) => {
   const base = path.basename(f);
   return !code.includes(base) && !code.includes("'" + base.replace(/\.\w+$/, "'"));
