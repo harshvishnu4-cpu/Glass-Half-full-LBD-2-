@@ -33,6 +33,34 @@ function expect(label, actual, wanted) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   page.on('response', (r) => { if (r.status() >= 400) badResponses.push(r.status() + ' ' + r.url()); });
 
+  // Snapshot the instant the tutorial hands control over. The glasses must not
+  // become draggable until Agni's line has finished typing AND speaking.
+  // Trapped with a property setter rather than polled: a poll can tick after the
+  // unlock, by which point the line has finished and an early hand-over looks
+  // clean. Verified to fail when the unlock is put back on a fixed timer.
+  await page.evaluateOnNewDocument(() => {
+    window.__unlockSnapshot = null;
+    const install = setInterval(() => {
+      const g = window.__game;
+      if (!g) return;
+      clearInterval(install);
+      let held = g.locked;
+      Object.defineProperty(g, 'locked', {
+        configurable: true,
+        get: function () { return held; },
+        set: function (next) {
+          if (held === true && next === false && !window.__unlockSnapshot) {
+            window.__unlockSnapshot = {
+              text: document.getElementById('agni-text').textContent,
+              voice: window.SFX ? window.SFX.voicePlaying() : null
+            };
+          }
+          held = next;
+        }
+      });
+    }, 10);
+  });
+
   await page.goto(URL);
   await sleep(1400); // title screen entrance
   expect('title screen visible', await page.evaluate(
@@ -78,6 +106,11 @@ function expect(label, actual, wanted) {
 
   // the game stays locked until Agni's tutorial dialogue finishes
   await page.waitForFunction(() => window.__game.locked === false, { timeout: 25000 });
+  const unlock = await page.evaluate(() => window.__unlockSnapshot);
+  expect('glasses unlock only after the line has fully typed',
+    unlock && unlock.text.trim(), 'This glass is empty. Put it in the correct tray.');
+  expect('glasses unlock only after Agni has stopped speaking',
+    unlock && unlock.voice, false);
 
   // 1. place the tutorial's spotlighted empty glass first — that ends the
   // guided hint (glow + ghost demo), leaving a clean stage for the
@@ -127,6 +160,19 @@ function expect(label, actual, wanted) {
     { timeout: 8000 });
   expect('wrong-drop bubble omits the spoken instruction', await page.evaluate(
     () => document.getElementById('agni-text').textContent.trim()), 'This glass is half full.');
+  // while the line is still being SPOKEN (the bubble's short text finishes ~2s
+  // before the voice), a grab must be ignored — dialogue first, hands after
+  expect('hint line still speaking once its text is up', await page.evaluate(
+    () => window.__game.speaking), true);
+  const gGate = await center('.glass', 1);
+  await page.mouse.move(gGate.x, gGate.y);
+  await page.mouse.down();
+  await sleep(150);
+  expect('grab ignored while Agni is speaking', await page.evaluate(
+    () => !document.querySelector('.glass.dragging')), true);
+  await page.mouse.up();
+  // ...and the hands come back the moment the line has been spoken out
+  await page.waitForFunction(() => !window.__game.speaking, { timeout: 8000 });
   // ...together with the glass pulsing, but no tray light and no ghost demo yet
   expect('glass pulses after 2nd wrong attempt', await page.evaluate(() =>
     !!document.querySelector('.glass.highlight')), true);
@@ -139,6 +185,8 @@ function expect(label, actual, wanted) {
       document.querySelector('#glow-half.on'), { timeout: 8000 });
   expect('lit tray + ghost demo after 3rd wrong attempt', true, true);
   await page.screenshot({ path: path.join(SHOTS, '2-after-reject.png') });
+  // the 3rd miss re-speaks the hint; drags are gated until it finishes
+  await page.waitForFunction(() => !window.__game.speaking, { timeout: 8000 });
 
   // 2. sort everything correctly
   const zoneFor = { empty: '#zone-empty', half: '#zone-half', full: '#zone-full' };
@@ -174,12 +222,24 @@ function expect(label, actual, wanted) {
   }), true);
   await page.screenshot({ path: path.join(SHOTS, '3b-garnished.png') });
 
-  // only now (after Agni's cheer) does the first customer walk in and demand
+  // only now (after Agni's cheer) do the customers file in and the first orders
   await page.waitForFunction(() => window.__game.demand !== null, { timeout: 25000 });
+  await sleep(1400); // let the rest of the line finish walking in
   console.log('order sequence:', await page.evaluate(
-    () => [window.__game.demand].concat(window.__game.demandQueue).join(', ')));
-  await sleep(700); // bubble pop-in
+    () => window.__game.queue.map((c) => c.order).concat(window.__game.demandQueue).join(', ')));
   await page.screenshot({ path: path.join(SHOTS, '3-customers.png') });
+
+  // customers queue: more than one is on the counter at a time, and they line up
+  // to the RIGHT of the one being served (they enter from the right)
+  const line = await page.evaluate(() => window.__game.queue.map((c) => {
+    const r = c.el.getBoundingClientRect();
+    return Math.round(r.left + r.width / 2);
+  }));
+  console.log('   queue x-centres: ' + JSON.stringify(line));
+  expect('customers form a queue rather than arriving one at a time', line.length > 1, true);
+  expect('the line stands to the right of the counter',
+    line.every((x, i) => i === 0 || x > line[i - 1]), true);
+  expect('the front of the queue is at the serve spot', Math.abs(line[0] - 960) < 40, true);
 
   // the order bubble must actually DECODE, not just be visible. A broken <img>
   // still has visibility:visible and a layout box, so only naturalWidth proves
@@ -253,8 +313,8 @@ function expect(label, actual, wanted) {
     demand = await page.evaluate(() => window.__game.demand);
     if (!demand) { await sleep(400); continue; }
     const before = await served();
-    if (before === 0) {
-      // record every SFX cue through the first payment: the coin must announce
+    if (before === 1) {
+      // record every SFX cue through a payment: the coin must announce
       // itself when it is HANDED OVER and again when it is TAKEN IN — two
       // separate beats, so a silent disappearance is a regression
       await page.evaluate(() => {
@@ -263,9 +323,25 @@ function expect(label, actual, wanted) {
         window.SFX.play = function (n) { window.__cues.push(n); return window.__sfxOrig.call(window.SFX, n); };
       });
     }
+    const tServe = Date.now();
     await dragTo(await glassIdxOf(demand), '#zone-customer');
     await page.waitForFunction((n) => window.__game.served === n + 1, { timeout: 6000 }, before);
     if (before === 0) {
+      // the served customer heads off to the LEFT, past the serve spot
+      await page.waitForFunction(() => Array.from(document.querySelectorAll('.customer'))
+        .some((el) => {
+          const r = el.getBoundingClientRect();
+          return +getComputedStyle(el).opacity > 0.5 && r.left + r.width / 2 < 700;
+        }), { timeout: 6000 });
+      expect('the served customer leaves to the left', true, true);
+      // and the next order is on the counter quickly, because the next customer
+      // was already waiting rather than walking in from off-screen
+      await page.waitForFunction(() => window.__game.demand !== null, { timeout: 10000 });
+      const gap = (Date.now() - tServe) / 1000;
+      console.log('   next order ready ' + gap.toFixed(2) + 's after the serve');
+      expect('the next order arrives promptly', gap < 5, true);
+    }
+    if (before === 1) {
       // the coin comes to rest ON the counter top: its BASE must land on the
       // same line the level-1 glasses stand on (SHELF_BOTTOM = 621), not
       // floating against the counter's front panel below it.
@@ -295,11 +371,14 @@ function expect(label, actual, wanted) {
       // the collect cue fires ~1.6s into the flight, as the coin fades out
       await page.waitForFunction(() => !document.querySelector('.coin-fly'), { timeout: 6000 });
       const cues = await page.evaluate(() => window.__cues.slice());
-      expect('coin announces the payment', cues.indexOf('coin') !== -1, true);
-      expect('coin announces being collected', cues.indexOf('collect') !== -1, true);
+      // anchor on the LAST pair: now that the queue keeps things moving, the
+      // previous customer's 'collect' can still land inside this window
+      const iCoin = cues.lastIndexOf('coin'), iCollect = cues.lastIndexOf('collect');
+      expect('coin announces the payment', iCoin !== -1, true);
+      expect('coin announces being collected', iCollect !== -1, true);
       expect('payment and collection are separate cues',
-        cues.indexOf('coin') !== -1 && cues.indexOf('collect') > cues.indexOf('coin'), true);
-      console.log('   cues through the first payment: ' + cues.join(', '));
+        iCoin !== -1 && iCollect > iCoin, true);
+      console.log('   cues through the payment: ' + cues.join(', '));
       // put the real SFX.play back — leaving the wrapper in place while dropping
       // the array it writes to makes every later cue throw
       await page.evaluate(() => { window.SFX.play = window.__sfxOrig; });

@@ -119,7 +119,7 @@
   var state = {
     glasses: [], placed: 0, topZ: 500, locked: false,
     phase: 1, served: 0, demand: null, active: null,
-    demandQueue: [],
+    demandQueue: [], queue: [], speaking: false,
     firstSortDone: false, tutTimers: [],
     wrongStreak: 0, coins: 0, hintGlass: null,
     strawTapped: false, lemonTapped: false, traysCentered: false
@@ -263,8 +263,11 @@
   function makeDraggable(g) {
     g.el.addEventListener('pointerdown', function (e) {
       /* g.drag guard: a second finger on the same glass must not re-grab it
-         (it would re-capture the pointer and make the glass jump) */
-      if (g.placed || state.locked || g.drag) return;
+         (it would re-capture the pointer and make the glass jump).
+         state.speaking: while ANY of Agni's lines is mid-type or mid-speech the
+         glasses ignore the hand — dialogue first, hands after. Every line gates
+         itself (see showTutMascot), so no caller can forget to lock. */
+      if (g.placed || state.locked || state.speaking || g.drag) return;
       e.preventDefault();
       try { g.el.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events have no active pointer */ }
       g.drag = {
@@ -522,7 +525,30 @@
     typeCall = gsap.delayedCall(startDelay || 0, step);
   }
 
-  /* voText: the recorded line, when the bubble shows less than he says */
+  /* Typing has finished; wait out the tail of the recorded clip (typing is
+     paced to land at 0.9x the clip, so a little speech is always left), then
+     release the player's hands and hand the moment to the caller. The 2s cap
+     means a clip that never reports finishing cannot lock the game for good. */
+  var speakRelease = null;
+  function lineDone(onDone) {
+    var waited = 0;
+    (function wait() {
+      if (SFX.voicePlaying() && waited < 2) {
+        waited += 0.12;
+        speakRelease = gsap.delayedCall(0.12, wait);
+        return;
+      }
+      speakRelease = null;
+      state.speaking = false; /* dialogue over — the hands come back */
+      if (onDone) onDone();
+    })();
+  }
+
+  /* voText: the recorded line, when the bubble shows less than he says.
+     EVERY line locks the glasses while it runs (state.speaking) and releases
+     them when it has been fully typed AND spoken — so dialogue always finishes
+     before the player can act, no matter which caller started it. onDone
+     (optional) fires at that same released moment, never mid-line. */
   function showTutMascot(text, onDone, marks, voText) {
     /* one message at a time: the order bubble would sit behind the bar, so
        it steps aside while Agni talks and comes back when he is done */
@@ -530,6 +556,10 @@
       demandHiddenByBar = true;
       hideDemandBubble();
     }
+    /* a superseded line hands the gate to this one (its release must not fire) */
+    if (speakRelease) { speakRelease.kill(); speakRelease = null; }
+    state.speaking = true;
+    var handOver = function () { lineDone(onDone); };
     if (!tutMascotIn) {
       tutMascotIn = true;
       SFX.play('ask');
@@ -541,14 +571,14 @@
         { autoAlpha: 1, scale: 1, duration: 0.45, ease: 'back.out(2)', delay: 0.3,
           transformOrigin: '0% 100%' }); /* grows out of the tail, by his head */
       speakLine(voText || text, 0.65);
-      typewrite(text, 0.65, onDone, marks, voText); /* type once the bubble is open */
+      typewrite(text, 0.65, handOver, marks, voText); /* type once the bubble is open */
     } else {
       /* already on screen — the bubble pops and the new line types in */
       SFX.play('ask');
       gsap.fromTo(agniBubble, { scale: 0.94 },
         { scale: 1, duration: 0.3, ease: 'back.out(2.4)', transformOrigin: '0% 100%' });
       speakLine(voText || text, 0.2);
-      typewrite(text, 0.2, onDone, marks, voText);
+      typewrite(text, 0.2, handOver, marks, voText);
     }
     /* friendly wiggle as he talks */
     gsap.fromTo(agniImg, { rotation: -1.6 },
@@ -559,6 +589,10 @@
 
   function hideTutMascot() {
     if (typeCall) { typeCall.kill(); typeCall = null; }
+    /* a dismissed line no longer gates the hands (e.g. the player earned the
+       dismissal by serving correctly while the thank-you was still up) */
+    if (speakRelease) { speakRelease.kill(); speakRelease = null; }
+    state.speaking = false;
     /* a clip that has not started yet must not speak after the bar leaves
        (one already playing is left to finish naturally — no mid-word cuts) */
     if (voCall) { voCall.kill(); voCall = null; }
@@ -743,10 +777,20 @@
 
   /* ---------- phase 2: serving the customers ---------- */
 
-  /* customers are served one at a time at the centre of the stand */
+  /* Customers form a QUEUE: they walk in from the RIGHT, wait their turn in
+     line, are served at the centre of the stand, then head off to the LEFT while
+     everyone behind shuffles up a place and a new face joins the back. The
+     counter is never empty between orders, which reads as a busy stall rather
+     than one customer at a time with a gap in between.
+     QUEUE_SLOTS are the x-centres of each place in the line; [0] is the counter. */
   var SERVE_X = 960;
+  var QUEUE_SLOTS = [SERVE_X, 1330, 1650];
+  var OFF_RIGHT = 2320;   /* x-centre off the right edge, behind the stall post */
+  var OFF_LEFT = -400;    /* ...and off the left */
 
   function customerHit(pt) {
+    /* only the customer AT the counter can be served — the ones queueing behind
+       are well outside this box (the next slot is 370px away) */
     return state.active && Math.abs(pt.x - SERVE_X) < 230 && pt.y > 200 && pt.y < 660;
   }
 
@@ -779,23 +823,21 @@
          arrives until both the lemon and straw have been added. The boxes
          become tappable the moment Agni finishes saying the line. */
       showTutMascot(TUT[4], function () { /* "Tap the lemons and the straws." */
-        state.locked = false; /* dialogue over — tap away! */
+        state.locked = false; /* line fully typed and spoken — tap away! */
         tutLater(1.5, function () { hideTutMascot(); });
       });
       startGarnishNudge();   /* the garnish boxes glow & bob until tapped */
     });
   }
 
-  /* one customer waddles in from the left to the centre of the stand */
-  function walkIn(c, onArrive) {
-    state.active = c;
-    SFX.play('arrive');
-    gsap.set(c.el, { autoAlpha: 1, x: -(c.center + 320), y: 0, rotation: 0, scaleY: 1 });
-    var walk = 1.15;
-    gsap.to(c.el, { x: SERVE_X - c.center, duration: walk, ease: 'power1.inOut' });
-    gsap.to(c.el, { keyframes: { y: [0, -14, 0, -14, 0, -14, 0] }, duration: walk, ease: 'none' });
+  /* waddle a customer to an x-centre and settle them there */
+  function walkTo(c, centreX, dur, onArrive) {
+    gsap.killTweensOf(c.el);
+    gsap.set(c.el, { scaleY: 1 });
+    gsap.to(c.el, { x: centreX - c.center, duration: dur, ease: 'power1.inOut' });
+    gsap.to(c.el, { keyframes: { y: [0, -14, 0, -14, 0, -14, 0] }, duration: dur, ease: 'none' });
     gsap.to(c.el, {
-      keyframes: { rotation: [0, -2, 2, -2, 2, 0] }, duration: walk, ease: 'none',
+      keyframes: { rotation: [0, -2, 2, -2, 2, 0] }, duration: dur, ease: 'none',
       onComplete: function () {
         /* gentle breathing while waiting (scaleY keeps y free for bounces) */
         gsap.to(c.el, {
@@ -807,35 +849,79 @@
     });
   }
 
-  /* ...and leaves to the right once served */
-  function walkOut(c) {
+  /* ...and off to the LEFT once served, freeing the sprite for reuse */
+  function walkOff(c) {
     gsap.killTweensOf(c.el);
     gsap.set(c.el, { scaleY: 1 });
     var walk = 1.0;
-    gsap.to(c.el, { x: (1920 + 400) - c.center, duration: walk, ease: 'power1.in' });
+    gsap.to(c.el, { x: OFF_LEFT - c.center, duration: walk, ease: 'power1.in' });
     gsap.to(c.el, { keyframes: { y: [0, -12, 0, -12, 0, -12, 0] }, duration: walk, ease: 'none' });
     gsap.to(c.el, {
       keyframes: { rotation: [0, 2, -2, 2, -2, 0] }, duration: walk, ease: 'none',
-      onComplete: function () { gsap.set(c.el, { autoAlpha: 0 }); }
+      onComplete: function () {
+        gsap.set(c.el, { autoAlpha: 0 });
+        c.busy = false;   /* this face can join the back of the line again */
+      }
     });
   }
 
-  function startRound() {
-    if (!state.demandQueue.length) { finalWin(); return; }
-    state.demand = null; /* no orders while the customer is still walking */
+  /* the customer standing at the counter places their order */
+  function frontReady(c) {
+    if (state.queue[0] !== c || state.demand) return;
+    state.active = c;
+    state.demand = c.order;
+    state.wrongStreak = 0;
+    demandHiddenByBar = false;
+    zoneCustomer.style.left = (SERVE_X - 220) + 'px';
+    showDemandBubble(state.demand);
+    SFX.play('ask');
+  }
+
+  /* a new face walks in from the right and takes the last free place. Each one
+     carries the order they will ask for, so the line is a real queue of orders
+     rather than a single order handed out on arrival. */
+  function spawnCustomer() {
+    if (!state.demandQueue.length || state.queue.length >= QUEUE_SLOTS.length) return;
+    var pool = PHASE2.chars.filter(function (c) { return !c.busy; });
+    if (!pool.length) return;
+    var c = pool[Math.floor(Math.random() * pool.length)];
+    c.busy = true;
+    c.order = state.demandQueue.shift();
+    state.queue.push(c);
+    var slot = state.queue.length - 1;
+    SFX.play('arrive');
+    gsap.set(c.el, { autoAlpha: 1, x: OFF_RIGHT - c.center, y: 0, rotation: 0, scaleY: 1 });
+    walkTo(c, QUEUE_SLOTS[slot], slot === 0 ? 1.15 : 1.3, function () { frontReady(c); });
+  }
+
+  /* top the line back up to a full house, staggered so they arrive one by one */
+  function fillQueue() {
+    var need = QUEUE_SLOTS.length - state.queue.length;
+    for (var i = 0; i < need; i++) gsap.delayedCall(i * 0.5, spawnCustomer);
+  }
+
+  function startServing() {
+    state.demand = null;
     state.wrongStreak = 0;
     demandHiddenByBar = false;
     hideTutMascot();     /* clean slate at the top of the screen for the new order */
     clearServeHint();
-    var pool = PHASE2.chars.filter(function (c) { return c !== state.lastChar; });
-    var c = pool[Math.floor(Math.random() * pool.length)];
-    state.lastChar = c;
-    walkIn(c, function () {
-      state.demand = state.demandQueue.shift();
-      zoneCustomer.style.left = (SERVE_X - 220) + 'px';
-      showDemandBubble(state.demand);
-      SFX.play('ask');
+    fillQueue();
+  }
+
+  /* served customer leaves, the line steps up, and the back fills in behind */
+  function advanceQueue(served) {
+    var i = state.queue.indexOf(served);
+    if (i !== -1) state.queue.splice(i, 1);
+    walkOff(served);
+    /* everyone still waiting moves up one place — a short hop, so the next
+       order lands about a second after the last one was handed over */
+    state.queue.forEach(function (c, n) {
+      walkTo(c, QUEUE_SLOTS[n], 0.6, function () { frontReady(c); });
     });
+    gsap.delayedCall(0.3, spawnCustomer);
+    /* nobody left waiting and no orders to come — that was the last customer */
+    if (!state.queue.length && !state.demandQueue.length) gsap.delayedCall(1.0, finalWin);
   }
 
   /* the designed order bubble: half/full glass artwork beside the customer.
@@ -924,12 +1010,16 @@
         burstSparks(SERVE_X, 420);
       }, 0.45);
 
-    /* happy customer wiggle, a grateful word, pays a coin, then off they waddle */
+    state.active = null;   /* nobody is servable until the next one steps up */
+
+    /* happy customer wiggle, a grateful word, pays a coin, then off they waddle
+       and the line steps up behind them. The old flow waited 3s and then walked
+       a fresh customer all the way in from off-screen — this hands the next
+       order over in about half that, because they are already standing there. */
     gsap.to(c.el, { scaleY: 1.05, duration: 0.16, yoyo: true, repeat: 3, ease: 'sine.inOut', delay: 0.45 });
     gsap.delayedCall(0.6, function () { showServeFeedback(c); });
     gsap.delayedCall(0.8, giveCoin);
-    gsap.delayedCall(2.1, function () { walkOut(c); });
-    gsap.delayedCall(3.0, startRound);
+    gsap.delayedCall(1.6, function () { advanceQueue(c); });
   }
 
   /* the served customer beams a little thank-you bubble above their head */
@@ -943,7 +1033,10 @@
     gsap.fromTo(serveBubble, { autoAlpha: 0, scale: 0.3, y: 22 },
       { autoAlpha: 1, scale: 1, y: 0, duration: 0.4, ease: 'back.out(2.4)' });
     SFX.play('happy');
-    gsap.to(serveBubble, { autoAlpha: 0, scale: 0.6, duration: 0.3, delay: 1.5, ease: 'back.in(1.6)',
+    /* clear of the counter before the next customer steps up (~2.2s after the
+       serve) — the bubble is pinned to the serve spot, not to the customer, so
+       a longer dwell would read as the NEW arrival saying thank you */
+    gsap.to(serveBubble, { autoAlpha: 0, scale: 0.6, duration: 0.3, delay: 0.9, ease: 'back.in(1.6)',
       onComplete: function () { gsap.set(serveBubble, { visibility: 'hidden' }); } });
   }
 
@@ -1096,7 +1189,7 @@
       gsap.delayedCall(5.6, function () { hideTutMascot(); }); /* the spoken cheer runs ~5.6s in */
       gsap.delayedCall(6.0, function () {
         state.locked = false;
-        startRound();
+        startServing();   /* the first three customers file in from the right */
       });
     }
   }
@@ -1409,14 +1502,16 @@
          he says where to put it */
       clearZoneHints();
       highlightEmptyGlass();
-      showTutMascot(TUT[2], null, [
+      /* hands on the glasses the moment this line is done — onDone fires only
+         once the line is fully typed AND spoken, so control can never pass
+         mid-sentence */
+      showTutMascot(TUT[2], function () {
+        hideTutMascot();
+        state.locked = false; /* dialogue over — hands on the glasses! */
+        startSortHint();
+      }, [
         { at: TUT[2].indexOf('Put it'), fn: function () { hintZone('empty'); } }
       ]);
-    });
-    tutLater(12.9, function () {
-      hideTutMascot();
-      state.locked = false; /* dialogue over — hands on the glasses! */
-      startSortHint();
     });
   }
 
