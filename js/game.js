@@ -917,20 +917,22 @@
      arrival and read as a bug. STEP_UP_DELAY holds the line until the coin has
      been taken in, so the payment gets its own beat and the queue still moves
      far quicker than the old walk-in-from-off-screen. */
-  var STEP_UP_DELAY = 0.85, STEP_UP_WALK = 0.6;
+  var STEP_UP_WALK = 0.6;
 
   function advanceQueue(served) {
     var i = state.queue.indexOf(served);
     if (i !== -1) state.queue.splice(i, 1);
     walkOff(served);
-    gsap.delayedCall(STEP_UP_DELAY, function () {
+    /* the payment clears the bar first, THEN the line moves — the next
+       customer never starts walking while the coin is still on screen */
+    whenCounterClear(function () {
       state.queue.forEach(function (c, n) {
         walkTo(c, QUEUE_SLOTS[n], STEP_UP_WALK, function () { frontReady(c); });
       });
+      gsap.delayedCall(0.3, spawnCustomer);
+      /* nobody left waiting and no orders to come — that was the last customer */
+      if (!state.queue.length && !state.demandQueue.length) gsap.delayedCall(0.9, finalWin);
     });
-    gsap.delayedCall(STEP_UP_DELAY + 0.3, spawnCustomer);
-    /* nobody left waiting and no orders to come — that was the last customer */
-    if (!state.queue.length && !state.demandQueue.length) gsap.delayedCall(1.6, finalWin);
   }
 
   /* the designed order bubble: half/full glass artwork beside the customer.
@@ -967,8 +969,10 @@
      its base left it floating against the counter's front panel instead.
      Small spread so consecutive coins don't stack in one spot. */
   var COIN_H = 62;                 /* 92px wide / 184x123 art => 62 tall */
+  var coinsInPlay = 0;             /* the queue waits on this — see whenCounterClear */
   function giveCoin() {
     state.coins += 1;
+    coinsInPlay += 1;
     var lx = SERVE_X - 46 + gsap.utils.random(-90, 90);
     var ly = SHELF_BOTTOM - COIN_H + gsap.utils.random(-3, 3);
     var coin = document.createElement('img');
@@ -976,7 +980,9 @@
     coin.className = 'coin-fly';
     stage.appendChild(coin);
     SFX.play('coin');
-    gsap.timeline({ onComplete: function () { coin.remove(); } })
+    /* removal happens on the fade's own onComplete, which also releases the
+       queue gate — see coinsInPlay */
+    gsap.timeline()
       .set(coin, { x: SERVE_X - 46, y: 430, scale: 0.4, autoAlpha: 0, transformOrigin: '50% 100%' })
       .to(coin, { autoAlpha: 1, scale: 1, duration: 0.2, ease: 'back.out(2)' })
       /* tossed up out of their hands, then down onto the counter top */
@@ -985,13 +991,34 @@
       /* it lands with a squash and settles */
       .to(coin, { scaleY: 0.8, scaleX: 1.12, duration: 0.09, ease: 'power1.in' }, 0.95)
       .to(coin, { scaleY: 1, scaleX: 1, duration: 0.24, ease: 'elastic.out(1.4, 0.5)' })
-      /* collected, right where it came to rest — its own cue, so the coin
-         being TAKEN IN is a separate beat from the jingle that paid it */
+      /* rests on the bar for a beat so the payment registers, then is taken in.
+         The queue will not step up until this has finished — see advanceQueue */
       .add(function () {
         SFX.play('collect');
         burstSparks(lx + 46, ly + COIN_H / 2);
-      }, '+=0.35')
-      .to(coin, { autoAlpha: 0, scale: 0.45, y: ly - 22, duration: 0.3, ease: 'power2.in' }, '<');
+      }, '+=0.5')
+      .to(coin, {
+        autoAlpha: 0, scale: 0.45, y: ly - 22, duration: 0.3, ease: 'power2.in',
+        onComplete: function () { coin.remove(); coinsInPlay -= 1; }
+      }, '<');
+  }
+
+  /* Run fn once no coin is on the counter. The coin must finish disappearing
+     BEFORE the next customer starts moving up: tuned delays got this wrong
+     twice — the arrival first landed on top of the collection, then merely
+     overlapped its 0.3s fade, which still read as the coin vanishing under
+     them. Gating on the coin itself makes the order structural. Capped so a
+     coin that somehow never clears cannot stall the queue for good. */
+  function whenCounterClear(fn) {
+    var waited = 0;
+    (function wait() {
+      if (coinsInPlay > 0 && waited < 4) {
+        waited += 0.1;
+        gsap.delayedCall(0.1, wait);
+        return;
+      }
+      fn();
+    })();
   }
 
   function serveGlass(g) {

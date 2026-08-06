@@ -357,23 +357,28 @@ function expect(label, actual, wanted) {
           return +getComputedStyle(el).opacity > 0.5 && r.left + r.width / 2 < 700;
         }), { timeout: 6000 });
       expect('the served customer leaves to the left', true, true);
-      // The coin must finish its whole beat BEFORE the next customer takes the
-      // counter. The queue used to step up at +2.2s while the coin was still
-      // being collected at +2.43s, so the coin appeared to vanish under the new
-      // arrival — reported as "the coin disappears when the second customer
-      // comes". Now the line holds until the payment has been taken in.
+      // The coin finishes disappearing BEFORE the next customer moves. Timing
+      // this by the ask alone is not enough — an earlier attempt had the coin
+      // gone 0.3s before the order appeared, yet the customer had already been
+      // WALKING for that whole time, so the coin still vanished under a moving
+      // sprite. Record when the queue starts moving, not just when it arrives.
       await page.waitForFunction(() => !!document.querySelector('.coin-fly'), { timeout: 8000 });
-      await page.waitForFunction(() => !document.querySelector('.coin-fly'), { timeout: 8000 });
-      const tCoinGone = (Date.now() - tServe) / 1000;
-      // and the next order is still on the counter quickly, because the next
-      // customer was already waiting rather than walking in from off-screen
-      await page.waitForFunction(() => window.__game.demand !== null, { timeout: 10000 });
-      const gap = (Date.now() - tServe) / 1000;
-      console.log('   coin gone ' + tCoinGone.toFixed(2) + 's / next order ' +
-        gap.toFixed(2) + 's after the serve');
-      expect('the coin is collected before the next customer orders',
-        tCoinGone < gap, true);
-      expect('the next order arrives promptly', gap < 5, true);
+      const restX = await page.evaluate(
+        () => window.__game.queue[0] ? Math.round(window.__game.queue[0].el.getBoundingClientRect().left) : null);
+      await page.waitForFunction(() => !document.querySelector('.coin-fly'), { timeout: 10000 });
+      const tGone = (Date.now() - tServe) / 1000;
+      const stillParked = await page.evaluate(
+        (x0) => window.__game.queue[0] &&
+          Math.abs(Math.round(window.__game.queue[0].el.getBoundingClientRect().left) - x0) < 8,
+        restX);
+      expect('the next customer has not started moving while the coin is on screen',
+        stillParked, true);
+      await page.waitForFunction(() => window.__game.demand !== null, { timeout: 12000 });
+      const tAsk = (Date.now() - tServe) / 1000;
+      console.log('   coin gone ' + tGone.toFixed(2) + 's / next order ' +
+        tAsk.toFixed(2) + 's after the serve');
+      expect('the coin disappears before the next customer arrives', tGone < tAsk, true);
+      expect('the next order arrives promptly', tAsk < 6, true);
     }
     if (before === 1) {
       // the coin comes to rest ON the counter top: its BASE must land on the
@@ -430,6 +435,10 @@ function expect(label, actual, wanted) {
   expect('all hints cleared at the win screen', await page.evaluate(() =>
     !document.querySelector('.tray-glow.on') && !document.querySelector('.glass-ghost') &&
     !document.querySelector('.nudge-glow')), true);
+  // the LAST customer's coin has no follower to trigger its collection, so
+  // finalWin has to sweep it — otherwise it is stranded behind the win overlay
+  expect('the last coin is taken in too, none stranded', await page.evaluate(
+    () => document.querySelectorAll('.coin-fly').length), 0);
   expect('win overlay visible', await page.evaluate(() => {
     const s = getComputedStyle(document.getElementById('win-overlay'));
     return s.visibility === 'visible' && parseFloat(s.opacity) > 0.9;
