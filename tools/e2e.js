@@ -241,6 +241,29 @@ function expect(label, actual, wanted) {
     line.every((x, i) => i === 0 || x > line[i - 1]), true);
   expect('the front of the queue is at the serve spot', Math.abs(line[0] - 960) < 40, true);
 
+  // the order bubble FLOATS above the customer — its tail points down at the
+  // head with a gap, rather than overlapping it (which read as the bubble being
+  // stuck to the head). The art's drawn box is rows 31..132 of a 132-tall
+  // canvas and the tail tip sits at 99% of the element height.
+  // Measured from LAYOUT (offsetTop/offsetHeight), not getBoundingClientRect:
+  // the bubble bobs 10px up on a loop, so the live rect flatters the gap. Layout
+  // gives the resting pose, which is the worst case. The head is the design
+  // constant — every sprite is placed so its VISIBLE top is y=305 (the element
+  // rect starts higher, inside the sprite's transparent margin).
+  const bub = await page.evaluate(() => {
+    const el = document.getElementById('demand-bubble');
+    return {
+      top: Math.round(el.offsetTop + el.offsetHeight * 31 / 132),
+      tail: Math.round(el.offsetTop + el.offsetHeight * 0.99),
+      head: 305
+    };
+  });
+  console.log('   bubble visible top y=' + bub.top + ', tail tip y=' + bub.tail +
+    ' (at rest), head top y=' + bub.head + '  => gap ' + (bub.head - bub.tail) + 'px');
+  expect('the order bubble clears the customer\'s head', bub.head - bub.tail > 0, true);
+  expect('...but still points at it (not adrift)', bub.head - bub.tail < 60, true);
+  expect('the order bubble stays on stage', bub.top > 0, true);
+
   // the order bubble must actually DECODE, not just be visible. A broken <img>
   // still has visibility:visible and a layout box, so only naturalWidth proves
   // the art rendered — this caught the preloader handing <img> a typeless blob
@@ -334,11 +357,22 @@ function expect(label, actual, wanted) {
           return +getComputedStyle(el).opacity > 0.5 && r.left + r.width / 2 < 700;
         }), { timeout: 6000 });
       expect('the served customer leaves to the left', true, true);
-      // and the next order is on the counter quickly, because the next customer
-      // was already waiting rather than walking in from off-screen
+      // The coin must finish its whole beat BEFORE the next customer takes the
+      // counter. The queue used to step up at +2.2s while the coin was still
+      // being collected at +2.43s, so the coin appeared to vanish under the new
+      // arrival — reported as "the coin disappears when the second customer
+      // comes". Now the line holds until the payment has been taken in.
+      await page.waitForFunction(() => !!document.querySelector('.coin-fly'), { timeout: 8000 });
+      await page.waitForFunction(() => !document.querySelector('.coin-fly'), { timeout: 8000 });
+      const tCoinGone = (Date.now() - tServe) / 1000;
+      // and the next order is still on the counter quickly, because the next
+      // customer was already waiting rather than walking in from off-screen
       await page.waitForFunction(() => window.__game.demand !== null, { timeout: 10000 });
       const gap = (Date.now() - tServe) / 1000;
-      console.log('   next order ready ' + gap.toFixed(2) + 's after the serve');
+      console.log('   coin gone ' + tCoinGone.toFixed(2) + 's / next order ' +
+        gap.toFixed(2) + 's after the serve');
+      expect('the coin is collected before the next customer orders',
+        tCoinGone < gap, true);
       expect('the next order arrives promptly', gap < 5, true);
     }
     if (before === 1) {

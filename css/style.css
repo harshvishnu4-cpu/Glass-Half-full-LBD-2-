@@ -191,15 +191,19 @@ img { user-select: none; -webkit-user-drag: none; }
   will-change: transform;
 }
 
-/* designed order bubble ("Half Full" / "Full" comic box, tail points
-   down-right); sits snug at the customer's head — every customer's head top
-   is y=305, centred on the serve spot (x=960) — so the tail tip touches it.
-   The art carries ~23% transparent padding along its top edge, so the drawn
-   box starts 62px below `top` and the tail tip lands at (885, 348). */
+/* Designed order bubble ("Half Full" / "Full" comic box, tail points
+   down-right), FLOATING above the customer at the serve spot (x=960): the tail
+   points down at the head rather than resting on it, same as #serve-bubble.
+   Every customer's head top is normalised to y=305; at the old top:86 the tail
+   tip landed at y=348, i.e. 43px INSIDE the head, which read as the bubble
+   being stuck to it. top:31 puts the tip at y=293, a 12px gap above the head.
+   The art carries ~23% transparent padding along its top edge, so the drawn box
+   starts 62px below `top` — the visible bubble is y 93-293, clear of the stage
+   edge and clear of the head. */
 #demand-bubble {
   position: absolute;
   z-index: 9;
-  left: 669px; top: 86px;
+  left: 669px; top: 31px;
   width: 230px;
   transform-origin: 94% 99%;   /* pop/shake pivots on the tail tip */
   opacity: 0;

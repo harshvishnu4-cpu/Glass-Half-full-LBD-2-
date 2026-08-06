@@ -910,18 +910,27 @@
   }
 
   /* served customer leaves, the line steps up, and the back fills in behind */
+  /* The served customer leaves at once, but the line waits before stepping up:
+     the coin is still in the air. giveCoin runs at +0.8s from the serve and the
+     coin is not collected until +2.43s, so a step-up on the old 0.6s hop put the
+     next customer at the counter at +2.2s — the coin then vanished under their
+     arrival and read as a bug. STEP_UP_DELAY holds the line until the coin has
+     been taken in, so the payment gets its own beat and the queue still moves
+     far quicker than the old walk-in-from-off-screen. */
+  var STEP_UP_DELAY = 0.85, STEP_UP_WALK = 0.6;
+
   function advanceQueue(served) {
     var i = state.queue.indexOf(served);
     if (i !== -1) state.queue.splice(i, 1);
     walkOff(served);
-    /* everyone still waiting moves up one place — a short hop, so the next
-       order lands about a second after the last one was handed over */
-    state.queue.forEach(function (c, n) {
-      walkTo(c, QUEUE_SLOTS[n], 0.6, function () { frontReady(c); });
+    gsap.delayedCall(STEP_UP_DELAY, function () {
+      state.queue.forEach(function (c, n) {
+        walkTo(c, QUEUE_SLOTS[n], STEP_UP_WALK, function () { frontReady(c); });
+      });
     });
-    gsap.delayedCall(0.3, spawnCustomer);
+    gsap.delayedCall(STEP_UP_DELAY + 0.3, spawnCustomer);
     /* nobody left waiting and no orders to come — that was the last customer */
-    if (!state.queue.length && !state.demandQueue.length) gsap.delayedCall(1.0, finalWin);
+    if (!state.queue.length && !state.demandQueue.length) gsap.delayedCall(1.6, finalWin);
   }
 
   /* the designed order bubble: half/full glass artwork beside the customer.
