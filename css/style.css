@@ -63,14 +63,17 @@ img { user-select: none; -webkit-user-drag: none; }
   opacity: 0;
   visibility: hidden;
 }
-/* every customer is normalised to the same 440px body height, feet on a
-   common ground line behind the counter (top 305 + 440 = feet at 745);
-   widths follow each sprite's aspect ratio */
-#char-reaper  { left: 178px;  top: 305px; width: 355px; }
-#char-wolf    { left: 883px;  top: 305px; width: 280px; }
-#char-mummy   { left: 1346px; top: 305px; width: 307px; }
-#char-vampire { left: 595px;  top: 305px; width: 269px; }
-#char-zombie  { left: 1149px; top: 305px; width: 237px; }
+/* Every customer is normalised to the same 440px VISIBLE body height, feet on
+   a common ground line behind the counter (visible top 305 + 440 = feet at
+   745). These exports carry differing transparent margins, so width/left/top
+   are derived from each sprite's measured alpha bounding box — the canvas is
+   wider and taller than the body (tools: scratchpad char-measure probe).
+   left keeps each body centred on the x-centres game.js PHASE2 expects. */
+#char-reaper  { left: 177px;    top: 276.8px; width: 361.4px; }
+#char-wolf    { left: 872.2px;  top: 284.4px; width: 317.8px; }
+#char-mummy   { left: 1341.5px; top: 276.5px; width: 326px; }
+#char-vampire { left: 578.5px;  top: 305px;   width: 313.3px; }
+#char-zombie  { left: 1121px;   top: 298.9px; width: 318.3px; }
 
 /* phase-2 counter dressing */
 .phase2 { opacity: 0; visibility: hidden; }
