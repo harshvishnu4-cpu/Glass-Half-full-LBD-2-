@@ -909,30 +909,30 @@
     fillQueue();
   }
 
-  /* served customer leaves, the line steps up, and the back fills in behind */
-  /* The served customer leaves at once, but the line waits before stepping up:
-     the coin is still in the air. giveCoin runs at +0.8s from the serve and the
-     coin is not collected until +2.43s, so a step-up on the old 0.6s hop put the
-     next customer at the counter at +2.2s — the coin then vanished under their
-     arrival and read as a bug. STEP_UP_DELAY holds the line until the coin has
-     been taken in, so the payment gets its own beat and the queue still moves
-     far quicker than the old walk-in-from-off-screen. */
+  /* The served customer leaves at once; the line steps up separately, hung off
+     the coin reward finishing (see stepUpQueue / rewardCoins). Every earlier
+     attempt at this used a tuned delay and got the ordering subtly wrong — the
+     arrival landed on the collection, then merely overlapped its fade. */
   var STEP_UP_WALK = 0.6;
 
-  function advanceQueue(served) {
+  /* the served customer heads off; the line does NOT move yet */
+  function departServed(served) {
     var i = state.queue.indexOf(served);
     if (i !== -1) state.queue.splice(i, 1);
     walkOff(served);
-    /* the payment clears the bar first, THEN the line moves — the next
-       customer never starts walking while the coin is still on screen */
-    whenCounterClear(function () {
-      state.queue.forEach(function (c, n) {
-        walkTo(c, QUEUE_SLOTS[n], STEP_UP_WALK, function () { frontReady(c); });
-      });
-      gsap.delayedCall(0.3, spawnCustomer);
-      /* nobody left waiting and no orders to come — that was the last customer */
-      if (!state.queue.length && !state.demandQueue.length) gsap.delayedCall(0.9, finalWin);
+  }
+
+  /* Runs from rewardCoins' completion hook — i.e. the moment the coins have
+     finished dissolving. Driving the step-up off the reward itself (rather than
+     a delay tuned to match it) is what guarantees the payment is off screen
+     before the next customer so much as starts walking. */
+  function stepUpQueue() {
+    state.queue.forEach(function (c, n) {
+      walkTo(c, QUEUE_SLOTS[n], STEP_UP_WALK, function () { frontReady(c); });
     });
+    gsap.delayedCall(0.3, spawnCustomer);
+    /* nobody left waiting and no orders to come — that was the last customer */
+    if (!state.queue.length && !state.demandQueue.length) gsap.delayedCall(0.9, finalWin);
   }
 
   /* the designed order bubble: half/full glass artwork beside the customer.
@@ -961,64 +961,56 @@
     gsap.to(demandBubble, { autoAlpha: 0, scale: 0.5, duration: 0.3, ease: 'back.in(1.6)' });
   }
 
-  /* the customer's coin arcs onto the counter, then is collected (vanishes).
-     It comes to rest ON the counter top: its BASE sits on SHELF_BOTTOM, the
-     exact line the glasses stand on in level 1, so the coin reads as set down
-     on the bar. Aligning by the base matters — the art is 184x123, so at the
-     CSS width of 92 the coin is only 62 tall, and positioning by anything but
-     its base left it floating against the counter's front panel instead.
-     Small spread so consecutive coins don't stack in one spot. */
+  /* ---------- the coin reward (ported from coin-reward.md) ----------
+     The pile MATERIALISES on the counter with a bouncy overshoot, holds fully
+     visible, then floats up and dissolves. It is not thrown or carried: tying
+     the money sound to the money VISUAL — the register rings exactly as the
+     pile lands, not when the drink was handed over a second earlier — is what
+     makes the payment read.
+
+     Timings and easing are the reference's; the implementation is GSAP rather
+     than CSS keyframes + setTimeout so it shares the rest of the game's
+     timeline (and its pause/kill behaviour) instead of needing stored timeout
+     handles and a reflow hack to restart. Each reward is its own element with
+     its own timeline, so back-to-back rewards cannot fight over shared state.
+
+       0.00s  pile pops in   0.4 -> 1.14 overshoot -> 1     (450ms)
+       0.45s  holds fully visible on the counter            (450ms)
+       0.90s  floats up ~45% of its height, scales to 1.1,
+              dissolves                                     (700ms)
+       1.60s  gone -> onGone fires
+
+     onGone is the rhythm marker for "transaction complete, next customer" —
+     advanceQueue hangs the whole queue step-up off it, so the line can never
+     start moving while money is still on screen. */
   var COIN_H = 62;                 /* 92px wide / 184x123 art => 62 tall */
-  var coinsInPlay = 0;             /* the queue waits on this — see whenCounterClear */
-  function giveCoin() {
+  var COIN_LAND = 0.45, COIN_SETTLE = 0.45, COIN_FADE = 0.7;
+
+  function rewardCoins(onGone) {
     state.coins += 1;
-    coinsInPlay += 1;
-    var lx = SERVE_X - 46 + gsap.utils.random(-90, 90);
-    var ly = SHELF_BOTTOM - COIN_H + gsap.utils.random(-3, 3);
     var coin = document.createElement('img');
     coin.src = ASSET('assets/img/coins.webp');
     coin.className = 'coin-fly';
     stage.appendChild(coin);
-    SFX.play('coin');
-    /* removal happens on the fade's own onComplete, which also releases the
-       queue gate — see coinsInPlay */
-    gsap.timeline()
-      .set(coin, { x: SERVE_X - 46, y: 430, scale: 0.4, autoAlpha: 0, transformOrigin: '50% 100%' })
-      .to(coin, { autoAlpha: 1, scale: 1, duration: 0.2, ease: 'back.out(2)' })
-      /* tossed up out of their hands, then down onto the counter top */
-      .to(coin, { keyframes: { y: [430, 366, ly] }, duration: 0.7, ease: 'power1.inOut' }, 0.25)
-      .to(coin, { x: lx, rotation: gsap.utils.random(-20, 20), duration: 0.7, ease: 'power1.inOut' }, 0.25)
-      /* it lands with a squash and settles */
-      .to(coin, { scaleY: 0.8, scaleX: 1.12, duration: 0.09, ease: 'power1.in' }, 0.95)
-      .to(coin, { scaleY: 1, scaleX: 1, duration: 0.24, ease: 'elastic.out(1.4, 0.5)' })
-      /* rests on the bar for a beat so the payment registers, then is taken in.
-         The queue will not step up until this has finished — see advanceQueue */
-      .add(function () {
-        SFX.play('collect');
-        burstSparks(lx + 46, ly + COIN_H / 2);
-      }, '+=0.5')
+    /* one fixed payment spot: centred on the serve spot with its BASE on
+       SHELF_BOTTOM, the line the glasses stand on, so the pile sits on the
+       counter top. transformOrigin at the base keeps it planted there while
+       it pops — scaling about the centre would sink it into the wood. */
+    gsap.set(coin, {
+      x: SERVE_X - 46, y: SHELF_BOTTOM - COIN_H,
+      scale: 0.4, autoAlpha: 0, transformOrigin: '50% 100%'
+    });
+    SFX.play('coin');   /* the till, exactly as the pile appears */
+    gsap.timeline({ onComplete: function () { coin.remove(); if (onGone) onGone(); } })
+      /* magical materialise: overshoot past full size, then settle back */
+      .to(coin, { autoAlpha: 1, scale: 1.14, duration: COIN_LAND * 0.55, ease: 'power2.out' })
+      .to(coin, { scale: 1, duration: COIN_LAND * 0.45, ease: 'power2.inOut' })
+      .to({}, { duration: COIN_SETTLE })            /* ...sits on the counter... */
+      .add(function () { SFX.play('collect'); })    /* ...and is taken in */
       .to(coin, {
-        autoAlpha: 0, scale: 0.45, y: ly - 22, duration: 0.3, ease: 'power2.in',
-        onComplete: function () { coin.remove(); coinsInPlay -= 1; }
-      }, '<');
-  }
-
-  /* Run fn once no coin is on the counter. The coin must finish disappearing
-     BEFORE the next customer starts moving up: tuned delays got this wrong
-     twice — the arrival first landed on top of the collection, then merely
-     overlapped its 0.3s fade, which still read as the coin vanishing under
-     them. Gating on the coin itself makes the order structural. Capped so a
-     coin that somehow never clears cannot stall the queue for good. */
-  function whenCounterClear(fn) {
-    var waited = 0;
-    (function wait() {
-      if (coinsInPlay > 0 && waited < 4) {
-        waited += 0.1;
-        gsap.delayedCall(0.1, wait);
-        return;
-      }
-      fn();
-    })();
+        y: '-=' + Math.round(COIN_H * 0.45), scale: 1.1, autoAlpha: 0,
+        duration: COIN_FADE, ease: 'power1.out'
+      });
   }
 
   function serveGlass(g) {
@@ -1048,14 +1040,15 @@
 
     state.active = null;   /* nobody is servable until the next one steps up */
 
-    /* happy customer wiggle, a grateful word, pays a coin, then off they waddle
-       and the line steps up behind them. The old flow waited 3s and then walked
-       a fresh customer all the way in from off-screen — this hands the next
-       order over in about half that, because they are already standing there. */
+    /* The serve rhythm: they cheer, the coins materialise WITH the cheer, the
+       customer waddles off — and only when the coins have finished dissolving
+       does the line step up. The reward's own completion hook is the marker for
+       "transaction complete, next customer", so no delay here has to be kept in
+       sync with the coin animation by hand. */
     gsap.to(c.el, { scaleY: 1.05, duration: 0.16, yoyo: true, repeat: 3, ease: 'sine.inOut', delay: 0.45 });
     gsap.delayedCall(0.6, function () { showServeFeedback(c); });
-    gsap.delayedCall(0.8, giveCoin);
-    gsap.delayedCall(1.6, function () { advanceQueue(c); });
+    gsap.delayedCall(0.8, function () { rewardCoins(stepUpQueue); });
+    gsap.delayedCall(1.6, function () { departServed(c); });
   }
 
   /* the served customer beams a little thank-you bubble above their head */

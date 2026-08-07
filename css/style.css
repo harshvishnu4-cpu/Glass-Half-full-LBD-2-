@@ -180,14 +180,18 @@ img { user-select: none; -webkit-user-drag: none; }
 #plaque-half  { left: 773px;  top: 969px; }
 #plaque-full  { left: 1405px; top: 969px; }
 
-/* coins the customers pay — they fly from the customer and pile up on the counter */
+/* The coins a customer pays: the pile MATERIALISES on the counter, holds, then
+   floats up and dissolves (see rewardCoins). The "treasure" read comes from the
+   filter here — a soft ground shadow plus a warm golden halo — which is why
+   plain coin art is enough and no glow is baked into the asset. */
 .coin-fly {
   position: absolute;
   left: 0; top: 0;
   z-index: 10;
   width: 92px;
   pointer-events: none;
-  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35))
+          drop-shadow(0 0 14px rgba(255, 215, 0, 0.85));
   will-change: transform;
 }
 

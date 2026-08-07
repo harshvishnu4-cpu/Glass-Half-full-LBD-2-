@@ -381,17 +381,15 @@ function expect(label, actual, wanted) {
       expect('the next order arrives promptly', tAsk < 6, true);
     }
     if (before === 1) {
-      // the coin comes to rest ON the counter top: its BASE must land on the
-      // same line the level-1 glasses stand on (SHELF_BOTTOM = 621), not
-      // floating against the counter's front panel below it.
-      // Shoot the counter while the coin is still sitting there (it settles
-      // ~1.3s in and is cleared ~1.9s in) so the spot is visible in the shots.
+      // the coin pile sits ON the counter top: its BASE must be on the same line
+      // the level-1 glasses stand on (SHELF_BOTTOM = 621), not floating against
+      // the counter's front panel below it.
+      // Sample during the HOLD — the pile is settled from 0.45s to 0.90s, then
+      // floats up as it dissolves. 0.65s is the middle of that window.
       await page.waitForFunction(() => !!document.querySelector('.coin-fly'), { timeout: 8000 });
-      await sleep(1100);
-      // MEASURE FIRST, screenshot after. y is flat only between 0.95s and 1.63s
-      // of the flight — after that, collecting the coin lifts it 22px as it
-      // fades. A screenshot costs a few hundred ms, so taking it before the
-      // sample pushed the reading into the lift and failed a correct landing.
+      await sleep(650);
+      // MEASURE FIRST, screenshot after: a screenshot costs a few hundred ms,
+      // which would push the reading past the hold and into the float-up.
       const rest = await page.evaluate(() => {
         const c = document.querySelector('.coin-fly');
         if (!c) return null;
